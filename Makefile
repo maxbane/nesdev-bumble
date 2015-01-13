@@ -1,5 +1,7 @@
-CA65="../../cc65/bin/ca65"
-LD65="../../cc65/bin/ld65"
+CC65DIR=../../cc65
+CC65BINDIR=${CC65DIR}/bin
+CA65=${CC65BINDIR}/ca65
+LD65=${CC65BINDIR}/ld65
 
 CAOPTS=-g
 LDOPTS=
