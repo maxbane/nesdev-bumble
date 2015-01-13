@@ -1,0 +1,10 @@
+.*.sw[op]
+*.o
+*~
+*.nes
+*.nes.dbg
+*.nes.deb
+*.map.txt
+*.labels.txt
+.exrc
+.vimrc
