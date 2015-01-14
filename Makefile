@@ -10,12 +10,12 @@ LDOPTS=
 
 all: bees.nes
 
-bees.nes: bees.o ppu.o joy.o ../inc/nrom.cfg 
+bees.nes: locals.o bees.o ppu.o joy.o ../inc/nrom.cfg 
 	${LD65} ${LDOPTS} -o bees.nes -C ../inc/nrom.cfg -m bees.map.txt \
 		-Ln bees.labels.txt --dbgfile bees.nes.dbg \
-		bees.o ppu.o joy.o
+		bees.o ppu.o joy.o locals.o
 
-bees.o: bees.s ppu.inc joy.inc ines.inc math_macros.inc chr/sprites.chr
+bees.o: bees.s locals.inc ppu.inc joy.inc ines.inc math_macros.inc chr/sprites.chr
 	${CA65} ${CAOPTS} -o bees.o bees.s
 
 ppu.o: ppu.s
@@ -23,6 +23,9 @@ ppu.o: ppu.s
 
 joy.o: joy.s
 	${CA65} ${CAOPTS} -o joy.o joy.s
+
+locals.o: locals.s
+	${CA65} ${CAOPTS} -o locals.o locals.s
 
 clean:
 	rm -f bees.nes bees.o ppu.o joy.o *.map.txt *.labels.txt *.nes.dbg

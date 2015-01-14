@@ -174,3 +174,15 @@
     sta resultAddr + 1
 .endmacro
 
+; Negate the signed 16-bit number at location valueAddr0 and store the result
+; at location resultAddr.
+; On exit: A = ??, X & Y are unchanged.
+.macro mathmac_neg16 valueAddr0, resultAddr
+    sec
+    lda #0
+    sbc valueAddr0 + 0
+    sta resultAddr + 0
+    lda #0
+    sbc valueAddr0 + 1
+    sta resultAddr + 1
+.endmacro

@@ -4,6 +4,7 @@
 
 ; imports
 
+.include "locals.inc"
 .include "ines.inc"
 .include "ppu.inc"
 .include "joy.inc"
@@ -53,23 +54,6 @@ main_palettes:
 .byte $0F,$1B,$2B,$3B ; sp2 teal
 .byte $0F,$12,$22,$32 ; sp3 marine
 
-.segment "ZEROPAGE"
-; reserve first $10 bytes of zeropage for general-purpose "local" vars, two of
-; which are sized to hold addresses for indirect referencing
-local_0:    .res 1
-local_1:    .res 1
-local_2:    .res 1
-;local_3:    .res 1
-;local_4:    .res 1
-;local_5:    .res 1
-;local_6:    .res 1
-;local_7:    .res 1
-;local_8:    .res 1
-;local_9:    .res 1
-;local_a:    .res 1
-;local_b:    .res 1
-addr0:      .res 2
-addr1:      .res 2
 
 ; Numeric constants
 .scope Constants
@@ -77,14 +61,18 @@ addr1:      .res 2
     PLAYER_TILE_BASE        = 1
     ACTOR_BASE_OAM_SPRITENO = 1
     ; gravitational acceleration 
-    GRAVITY_DDY             = $0002
+    GRAVITY_DDY             = $0004
     ; Amount by which to accelerate player if flapping straight up
     BASE_FLAP_ACCEL_VERT    = $0080 ; -ddy
     ; Amount to accelerate if flapping up and to the left/right
     ; Idea is to keep vector magnitude the same
     BASE_FLAP_ACCEL_DIAG    = $005A ; sqrt((ddy^2)/2)
+
+    FLOOR_Y                 = 231
+    CEILING_Y               = 12
 .endscope
 
+.segment "ZEROPAGE"
 ; Game variable "globals"
 .repeat Constants::N_ACTORS, I
     ;.out .sprintf ("actor_%02d", I)
@@ -190,37 +178,9 @@ irq:
 .endproc
 
 .proc handle_input
-    ; last frame's joypad state
-    last_frame_joy = local_0
-    ; we'll need to read twice to account for the DPCM glitch. This holds our
-    ; first read.
-    first_read = local_1
     ; buttons newly depressed this frame
-    new_buttons = local_2
-
-    lda Joy::pad0
-    sta last_frame_joy
-
-    jsr Joy::poll
-    lda Joy::pad0
-    sta first_read
-    jsr Joy::poll
-
-    ; make sure the two reads agree
-    lda Joy::pad0
-    cmp first_read
-    beq :+
-        ; reads disagreed.
-        ; no input handling this frame. restore last frame's state as "current"
-        lda last_frame_joy
-        sta Joy::pad0
-        rts
-    :
-
-    ; determine new button depressions
-    lda last_frame_joy  ; A = buttons that were down last frame
-    eor #$ff            ; A = buttons that were up last frame
-    and Joy::pad0       ; A = buttons down now and up last frame 
+    new_buttons = local_0
+    jsr Joy::lda_new_buttons
     sta new_buttons
 
     ; A button: jump
@@ -277,6 +237,30 @@ irq:
             dy = actor_i::velocity::yval
             mathmac_add16 px, dx, px
             mathmac_add16 py, dy, py
+
+            ; floor and ceiling bounce wrt most significant byte of py
+            ; Note we are inlining this for each actor!
+            lda py+1
+            cmp #Constants::CEILING_Y
+            bcc hit_ceiling
+            cmp #Constants::FLOOR_Y
+            bcc collision_done
+            hit_floor:
+                ; clip to floor
+                mathmac_set16 #((Constants::FLOOR_Y - 1) * $100), py
+                jmp hit_common
+            hit_ceiling:
+                ; clip to ceiling
+                mathmac_set16 #((Constants::CEILING_Y + 1) * $100), py
+            hit_common:
+                ; negate velocity y-component
+                mathmac_neg16 dy, dy
+                ; divide velocity y-component by two
+                lda dy + 1
+                asl
+                ror dy + 1
+                ror dy + 0
+            collision_done:
         .endscope
         .undefine actor_i
     .endrepeat

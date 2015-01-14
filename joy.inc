@@ -19,5 +19,6 @@
 
     .importzp pad0
     .import   poll
+    .import   lda_new_buttons
 .endscope ; Joy
 .endif ; .ifndef Joy::__included
