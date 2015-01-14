@@ -210,6 +210,13 @@ irq:
         mathmac_add16 #Constants::BASE_FLAP_ACCEL_DIAG,  dx, dx
         rts
     :
+    lda Joy::pad0
+    and #Joy::BUTTON_DOWN
+    beq :+
+        ; Voitical acceleration down
+        mathmac_add16 #Constants::BASE_FLAP_ACCEL_VERT, dy, dy
+        rts
+    :
     ; Voitical acceleration up
     mathmac_add16 #-Constants::BASE_FLAP_ACCEL_VERT, dy, dy
     rts
