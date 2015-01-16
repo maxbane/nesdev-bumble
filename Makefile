@@ -28,4 +28,4 @@ locals.o: locals.s
 	${CA65} ${CAOPTS} -o locals.o locals.s
 
 clean:
-	rm -f bees.nes bees.o ppu.o joy.o *.map.txt *.labels.txt *.nes.dbg
+	rm -f locals.o bees.nes bees.o ppu.o joy.o *.map.txt *.labels.txt *.nes.dbg
