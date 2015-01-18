@@ -34,6 +34,9 @@ actor_routines.o: actor_routines.s locals.inc constants.inc actor.inc
 chr/sprites.chr: chr/sprites.png bin/bmp2nes
 	bin/bmp2nes -i chr/sprites.png -o chr/sprites.chr
 
+chr/sprites.png: chr/sprites.xcf bin/xcf2png
+	bin/xcf2png chr/sprites.xcf chr/sprites.png
+
 clean:
 	rm -f locals.o bees.nes bees.o ppu.o joy.o actor_routines.o \
-		*.map.txt *.labels.txt *.nes.dbg
+		chr/sprites.png chr/sprites.chr *.map.txt *.labels.txt *.nes.dbg
