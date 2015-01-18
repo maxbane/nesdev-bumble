@@ -45,14 +45,15 @@ INES_HEADER INES_PRG_BANK_COUNT, INES_CHR_BANK_COUNT, INES_MAPPER, INES_MIRROR, 
 
 .segment "RODATA"
 main_palettes:
-.byte $0F,$15,$26,$37 ; bg0 purple/pink
-.byte $0F,$09,$19,$29 ; bg1 green
-.byte $0F,$01,$11,$21 ; bg2 blue
-.byte $0F,$00,$10,$30 ; bg3 greyscale
-.byte $0F,$18,$28,$38 ; sp0 yellow
-.byte $0F,$14,$24,$34 ; sp1 purple
-.byte $0F,$1B,$2B,$3B ; sp2 teal
-.byte $0F,$12,$22,$32 ; sp3 marine
+.byte $11,$15,$26,$37 ; bg0 purple/pink
+.byte $11,$09,$19,$29 ; bg1 green
+.byte $11,$01,$11,$21 ; bg2 blue
+.byte $11,$00,$10,$30 ; bg3 greyscale
+
+.byte $11,$08,$37,$20 ; sp0 BEES
+.byte $11,$14,$24,$34 ; sp1 purple
+.byte $11,$1B,$2B,$3B ; sp2 teal
+.byte $11,$12,$22,$32 ; sp3 marine
 
 
 ; Numeric constants
@@ -109,9 +110,19 @@ main_palettes:
         base_tile:  .res 1
         flags:      .res 1
         ; flags mask:
-        ; %76543210
-        ;         |
-        ;         +- is_2x2: Is actor 2x2 sprites (1) or 1 sprite (0)
+        ; %7654 3210
+        ;       ||||
+        ;       |||+- is_2x2: Is actor 2x2 sprites (1) or 1 sprite (0)
+        ;       +++-- actor's facing. 8 possible facings.
+        ;             Bit 3 indicates diagonal (rotate CC 45 degrees).
+        ;             000   = RIGHT
+        ;             001   = LEFT
+        ;             010   = UP
+        ;             011   = DOWN
+        ;             100   = UP-RIGHT
+        ;             101   = DOWN-LEFT
+        ;             110   = UP-LEFT
+        ;             111   = DOWN-RIGHT
     .endscope
 .endrepeat
 .define the_player actor_00
@@ -200,7 +211,7 @@ irq:
     mathmac_set16 #$0000, actor_01::velocity::xval, actor_01::velocity::yval
     lda #2
     sta the_player::base_tile
-    lda #3
+    lda #1
     sta actor_01::base_tile
     lda #(ActorFlagMask::is_2x2)
     sta the_player::flags
@@ -228,18 +239,34 @@ irq:
     dy = the_player::velocity::yval
     lda Joy::pad0
     and #Joy::BUTTON_LEFT
-    beq :+
-        ; Diagonal acceleration up and to the left
-        mathmac_add16 #-Constants::BASE_FLAP_ACCEL_DIAG, dy, dy
+    beq :++
+        ; Diagonal acceleration up/down and to the left
         mathmac_add16 #-Constants::BASE_FLAP_ACCEL_DIAG, dx, dx
+        lda Joy::pad0
+        and #Joy::BUTTON_DOWN
+        beq :+
+            ; down
+            mathmac_add16 #Constants::BASE_FLAP_ACCEL_DIAG, dy, dy
+            rts
+        :
+        ; up
+        mathmac_add16 #-Constants::BASE_FLAP_ACCEL_DIAG, dy, dy
         rts
     :
     lda Joy::pad0
     and #Joy::BUTTON_RIGHT
-    beq :+
-        ; Diagonal acceleration up and to the right
+    beq :++
+        ; Diagonal acceleration up/down and to the right
+        mathmac_add16 #Constants::BASE_FLAP_ACCEL_DIAG, dx, dx
+        lda Joy::pad0
+        and #Joy::BUTTON_DOWN
+        beq :+
+            ; down
+            mathmac_add16 #Constants::BASE_FLAP_ACCEL_DIAG, dy, dy
+            rts
+        :
+        ; up
         mathmac_add16 #-Constants::BASE_FLAP_ACCEL_DIAG, dy, dy
-        mathmac_add16 #Constants::BASE_FLAP_ACCEL_DIAG,  dx, dx
         rts
     :
     lda Joy::pad0
@@ -419,6 +446,13 @@ irq:
         sta (buffer_entry_ptr), Y
         iny
         lda 8, X      ; A = actor::base_tile
+        .if I = 0
+            adc #1
+        .elseif I = 1
+            adc #17
+        .else
+            adc #16
+        .endif
         sta (buffer_entry_ptr), Y
         iny
         ; TODO compute OAM flags from actor state
