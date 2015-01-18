@@ -27,5 +27,8 @@ joy.o: joy.s
 locals.o: locals.s
 	${CA65} ${CAOPTS} -o locals.o locals.s
 
+chr/sprites.chr: chr/sprites.png bin/bmp2nes
+	bin/bmp2nes -i chr/sprites.png -o chr/sprites.chr
+
 clean:
 	rm -f locals.o bees.nes bees.o ppu.o joy.o *.map.txt *.labels.txt *.nes.dbg
