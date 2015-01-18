@@ -8,3 +8,5 @@
 *.labels.txt
 .exrc
 .vimrc
+chr/*.chr
+chr/*.png
