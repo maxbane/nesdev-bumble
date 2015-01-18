@@ -10,8 +10,8 @@ LDOPTS=
 
 all: bees.nes
 
-bees.nes: locals.o bees.o ppu.o joy.o ../inc/nrom.cfg 
-	${LD65} ${LDOPTS} -o bees.nes -C ../inc/nrom.cfg -m bees.map.txt \
+bees.nes: locals.o bees.o ppu.o joy.o ldcfg/nrom.cfg 
+	${LD65} ${LDOPTS} -o bees.nes -C ldcfg/nrom.cfg -m bees.map.txt \
 		-Ln bees.labels.txt --dbgfile bees.nes.dbg \
 		bees.o ppu.o joy.o locals.o
 
