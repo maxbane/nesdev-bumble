@@ -13,13 +13,12 @@
     ; high bytes of actor's little endian 16-bit position coords become
     ; screen coords
     ; Y screen coord
-    lda 3, X      ; A = MSB(actor::position::yval)
+    lda ActorOffset::POSITION_Y+1, X      ; A = MSB(actor::position::yval)
                                 ; 4 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
     iny                         ; 2 cycles
     ; Tile number
-    ;lda actor_i::base_tile
-    lda 8, X      ; A = actor::base_tile
+    lda ActorOffset::BASE_TILE, X      ; A = actor::base_tile
                                 ; 4 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
     iny                         ; 2 cycles
@@ -30,7 +29,7 @@
     iny                         ; 2 cycles
     ; X screen coord
     ;lda actor_i::position::xval + 1
-    lda 1, X      ; A = MSB(actor::position::xval)
+    lda ActorOffset::POSITION_X+1, X      ; A = MSB(actor::position::xval)
                                 ; 4 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
     rts                         ; 6 cycles
@@ -47,7 +46,7 @@
     ; 2 | 1
     buffer_entry_ptr = addr_0
     ; if position::xval is far to the right onscreen, skip quadrants 0 and 1
-    lda 1, X      ; A = MSB(actor::position::xval)
+    lda ActorOffset::POSITION_X+1, X      ; A = MSB(actor::position::xval)
     cmp #(Constants::SCREEN_WIDTH - 8)
     bcc :+
         ; Actor's x-coord is < 8 pixels from right edge. Hide quadrants 0 and 1
@@ -79,14 +78,14 @@
             sta buffer_entry_ptr 
         .endif
         ldy #0
-        lda 3, X      ; A = MSB(actor::position::yval)
+        lda ActorOffset::POSITION_Y+1, X      ; A = MSB(actor::position::yval)
         .if I = 1 || I = 2
             ; bottom two quadrants: add 8px to screen y
             adc #8
         .endif
         sta (buffer_entry_ptr), Y
         iny
-        lda 8, X      ; A = actor::base_tile
+        lda ActorOffset::BASE_TILE, X      ; A = actor::base_tile
         .if I = 0
             adc #1
         .elseif I = 1
@@ -100,7 +99,7 @@
         lda #0
         sta (buffer_entry_ptr), Y
         iny
-        lda 1, X      ; A = MSB(actor::position::xval)
+        lda ActorOffset::POSITION_X+1, X      ; A = MSB(actor::position::xval)
         .if I < 2
             ; right two quadrants: add 8px to screen x
             adc #8
