@@ -1,3 +1,6 @@
+.ifndef INES_included
+INES_included = 1
+
 ; iNES header macro
 .macro INES_HEADER INES_PRG_BANK_COUNT, INES_CHR_BANK_COUNT, INES_MAPPER, INES_MIRROR, INES_SRAM
     .ifblank INES_PRG_BANK_COUNT
@@ -23,3 +26,5 @@
     .byte (INES_MAPPER & %11110000)
     .byte $0, $0, $0, $0, $0, $0, $0, $0 ; padding
 .endmacro
+
+.endif ; INES_included

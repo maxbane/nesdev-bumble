@@ -1,8 +1,7 @@
 
-.ifnblank Locals::__included
-.scope Locals
-    __included = 1
-.endscope ; Locals
+.ifndef Locals_included
+Locals_included = 1
 
 .importzp local_0, local_1, local_2, addr_0, addr_1
+
 .endif 

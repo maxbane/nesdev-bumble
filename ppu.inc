@@ -1,7 +1,7 @@
-.ifnblank PPU::__included
-.scope PPU
-    __included = 1
+.ifndef PPU_included
+PPU_included = 1
 
+.scope PPU
     ; PPU Register Address Constants
     .import REG_CTRL
     .import REG_MASK
@@ -38,4 +38,4 @@
     .import clear_background
 
 .endscope ; PPU
-.endif ; .ifndef PPU::__included
+.endif ; .ifndef PPU_included

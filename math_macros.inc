@@ -1,7 +1,8 @@
 ; TODO: support immediate mode arguments where it makes sense. See ca65 doc
 ; example with .match
 
-.macpack cpu
+.ifndef math_macros_included
+math_macros_included = 1
 
 ;------------------------------------------------
 ; Basic Operations
@@ -186,3 +187,5 @@
     sbc valueAddr0 + 1
     sta resultAddr + 1
 .endmacro
+
+.endif ; math_macros_included

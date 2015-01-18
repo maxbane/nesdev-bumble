@@ -1,9 +1,9 @@
 ; NES Gamepad module
 ; Useful constants and subroutines
 
-.ifnblank Joy::__included
+.ifndef Joy_included
+Joy_included = 1
 .scope Joy
-    __included = 1
     .import PAD0_ADDR
     .import PAD1_ADDR
 
@@ -21,4 +21,4 @@
     .import   poll
     .import   lda_new_buttons
 .endscope ; Joy
-.endif ; .ifndef Joy::__included
+.endif ; .ifndef Joy_included
