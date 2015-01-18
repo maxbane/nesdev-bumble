@@ -358,55 +358,71 @@ irq:
     sta buffer_entry_addr
     lda #>PPU::oam_buffer
     sta buffer_entry_addr + 1
+    ; inlined loop over all actors
     .repeat Constants::N_ACTORS, I
         .define actor_i .ident (.sprintf ("actor_%02d", I))
         .scope 
-            ldy #0
-            ; high bytes of actor's little endian 16-bit position coords become
-            ; screen coords
-            ; Y screen coord
-            lda actor_i::position::yval + 1
-            sta (buffer_entry_addr), Y
-            iny
-            ; Tile number
-            lda actor_i::base_tile
-            sta (buffer_entry_addr), Y
-            iny
-            ; OAM flags
-            ; TODO compute OAM flags from actor state
-            lda #0
-            sta (buffer_entry_addr), Y
-            iny
-            ; X screen coord
-            lda actor_i::position::xval + 1
-            sta (buffer_entry_addr), Y
-            ; check actor flags
-            lda actor_i::flags
-            and #ActorFlagMask::is_2x2
-            beq :+
-                ldx #actor_i::addr
-                jsr fill_2x2_actor_remaining_sprites
-            :
-            .if I < Constants::N_ACTORS - 1
+            .if I > 0
                 ; advance the buffer entry pointer
                 lda buffer_entry_addr ; 3 cycles
                 clc                   ; 2 cycles
                 adc #4                ; 2 cycles
                 sta buffer_entry_addr ; 3 cycles
             .endif
+            ; draw actor's sprites with appropriate routine, depending whether
+            ; it's a 1x1 or 2x2 actor. Both routines take the actor's base addr
+            ; (in zeropage) from X, and the current OAM buffer entry pointer
+            ; from addr_0
+            ldx #actor_i::addr
+            lda actor_i::flags
+            and #ActorFlagMask::is_2x2
+            beq draw_1x1
+            draw_2x2:
+                jsr draw_2x2_actor_sprites
+                jmp draw_done
+            draw_1x1:
+                ; Could inline this
+                jsr draw_1x1_actor_sprite
+            draw_done:
         .endscope
         .undefine actor_i
     .endrepeat
     rts
 .endproc
 
+.proc draw_1x1_actor_sprite
+    buffer_entry_ptr = addr_0
+    ldy #0
+    ; high bytes of actor's little endian 16-bit position coords become
+    ; screen coords
+    ; Y screen coord
+    lda 3, X      ; A = MSB(actor::position::yval)
+    sta (buffer_entry_ptr), Y
+    iny
+    ; Tile number
+    ;lda actor_i::base_tile
+    lda 8, X      ; A = actor::base_tile
+    sta (buffer_entry_ptr), Y
+    iny
+    ; OAM flags
+    ; TODO compute OAM flags from actor state
+    lda #0
+    sta (buffer_entry_ptr), Y
+    iny
+    ; X screen coord
+    ;lda actor_i::position::xval + 1
+    lda 1, X      ; A = MSB(actor::position::xval)
+    sta (buffer_entry_ptr), Y
+    rts
+.endproc
+
 ; Call with X = zp addr of actor, addr_0 = address of actor's first OAM buffer
 ; entry
-.proc fill_2x2_actor_remaining_sprites
-    ; hm, ends up lookig a lot the same as draw_actors
-    ; Quadrants of a 2x2 sprite. The unlabled quadrant has already been drawn
-    ;   | 0  
-    ; --+--
+.proc draw_2x2_actor_sprites
+    ; Quadrants of a 2x2 actor. MSBs of actor's position x,y coords = pixel
+    ; coords of top left of quadrant 3.
+    ; 3 | 0  Each quadrant corresponds an entry in the oam buffer.
+    ; --+--  Quadrant index is entry offset in oam buffer.
     ; 2 | 1
     buffer_entry_ptr = addr_0
     ; if position::xval is far to the right onscreen, skip quadrants 0 and 1
@@ -417,30 +433,34 @@ irq:
         ; by setting their screen y to $FF, then jump to drawing quadrant 2
         clc
         ldy #0
+        ; Quadrant 0
+        lda #$ff
+        sta (buffer_entry_ptr), Y
+
+        ; Quadrant 1
         lda buffer_entry_ptr
         adc #4
         sta buffer_entry_ptr
         lda #$ff
         sta (buffer_entry_ptr), Y
-        lda buffer_entry_ptr
-        adc #4
-        sta buffer_entry_ptr
-        lda #$ff
-        sta (buffer_entry_ptr), Y
+
         jmp quadrant_2
     :
-    .repeat 3, I
+    .repeat 4, I
         .ident (.sprintf ("quadrant_%d", I)):
         .if I = 2
             clc
         .endif
-        ; advance to next buffer entry
-        lda buffer_entry_ptr 
-        adc #4                
-        sta buffer_entry_ptr 
+        .if I > 0
+            ; advance to next buffer entry
+            lda buffer_entry_ptr 
+            adc #4                
+            sta buffer_entry_ptr 
+        .endif
         ldy #0
         lda 3, X      ; A = MSB(actor::position::yval)
-        .if I > 0
+        .if I = 1 || I = 2
+            ; bottom two quadrants: add 8px to screen y
             adc #8
         .endif
         sta (buffer_entry_ptr), Y
@@ -450,7 +470,7 @@ irq:
             adc #1
         .elseif I = 1
             adc #17
-        .else
+        .elseif I = 2
             adc #16
         .endif
         sta (buffer_entry_ptr), Y
@@ -461,6 +481,7 @@ irq:
         iny
         lda 1, X      ; A = MSB(actor::position::xval)
         .if I < 2
+            ; right two quadrants: add 8px to screen x
             adc #8
         .endif
         sta (buffer_entry_ptr), Y
