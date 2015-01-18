@@ -1,5 +1,6 @@
 .ifndef Actor_included
 Actor_included = 1
+.linecont +
 
 ; Reserve space for n_actors actors, with a nice scope and labels for static
 ; access to each.
@@ -28,7 +29,26 @@ Actor_included = 1
             ;       +++-- actor's facing. 8 possible facings.
         .endscope
     .endrepeat
-    .out    .sprintf("Reserved %d zeropage bytes for %d actors.", ActorOffset::ACTOR_SIZE * N, N)
+    .out    .sprintf("INFO: Reserved %d zeropage bytes for %d actors.", \
+                ActorOffset::ACTOR_SIZE * N, N)
+.endmacro
+
+.macro Actor_IMPORTZP_ACTORS   N
+    .repeat N, I
+        .scope .ident (.sprintf ("actor_%02d", I))
+            .exportzp addr
+            .scope position
+                .exportzp xval
+                .exportzp yval
+            .endscope
+            .scope velocity
+                .exportzp xval
+                .exportzp yval
+            .endscope
+            .exportzp base_tile
+            .exportzp flags
+        .endscope
+    .endrepeat
 .endmacro
 
 ; Offset in bytes from the beginning of an actor's record in memory of each
@@ -52,25 +72,82 @@ Actor_included = 1
     ; Actors can be 1x1 sprite or 2x2 sprites. In the latter case, the
     ; base_tile is the pattern-table index of the upper-left sprite, and
     ; different drawing logic, collision logic, etc. must apply to the actor.
-    is_2x2  = %00000001
+    is_2x2              = %00000001
+
+    facing              = %11000110
+    facing_oam          = %11000000
+    facing_tile_offset  = %00000110
 .endenum
 
-.macro Actor_IMPORTZP_ACTORS   N
-    .repeat N, I
-        .scope .ident (.sprintf ("actor_%02d", I))
-            .exportzp addr
-            .scope position
-                .exportzp xval
-                .exportzp yval
-            .endscope
-            .scope velocity
-                .exportzp xval
-                .exportzp yval
-            .endscope
-            .exportzp base_tile
-            .exportzp flags
-        .endscope
-    .endrepeat
+.define __actor_make_facing(oam_76_bits, tile_offset) \
+    ((oam_76_bits << 6) | (tile_offset << 1) & ActorFlagMask::facing)
+
+.enum ActorFacing
+; Actor facing    | OAM.76    | Tile offset (times actor size, 1 or 2)
+; ----------------+-----------+------------
+; RIGHT           | 00        | 0
+  RIGHT         = __actor_make_facing(%00, 0)
+; LEFT            | 01        | 0
+  LEFT          = __actor_make_facing(%01, 0)
+; UP              | 00        | 1
+  UP            = __actor_make_facing(%00, 1)
+; DOWN            | 10        | 1
+  DOWN          = __actor_make_facing(%10, 1)
+; UP-RIGHT        | 00        | 2
+  UP_RIGHT      = __actor_make_facing(%00, 2)
+; UP-LEFT         | 01        | 2
+  UP_LEFT       = __actor_make_facing(%01, 2)
+; DOWN-RIGHT      | 10        | 2
+  DOWN_RIGHT    = __actor_make_facing(%10, 2)
+; DOWN-LEFT       | 11        | 2
+  DOWN_LEFT     = __actor_make_facing(%11, 2)
+; Special facing constant meaning leave current facing alone
+  NO_CHANGE     = $ff
+.endenum
+
+; Set an actor's facing from a macro argument or from the accumulator if the
+; argument is blank.
+; @macroparam facing A constant from the ActorFacing enum.
+; @param X actor::addr
+; @clobbers A, local_0 (if the_facing is blank)
+.macro Actor_set_facing the_facing
+    .ifblank the_facing
+        Actor_set_facing_fromA
+    .else
+        .local done
+        ; This should really be unnecessary if the caller gives an immediate-mode
+        ; literal.
+        lda the_facing
+        cmp #ActorFacing::NO_CHANGE
+        beq done
+        ; first zero out the actor's facing bits
+        lda #ActorFlagMask::facing ; A = The mask of which bits determine facing
+        eor #$ff                   ; Invert it
+        and ActorOffset::FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
+                                   ; flags with facing bits zeroed
+        ora the_facing             ; OR in desired facing bits
+        sta ActorOffset::FLAGS, X  ; store back as the actor's new flags
+        done:
+    .endif
+.endmacro
+
+; Set an actor's facing from the accumulator.
+; @param X actor::addr
+; @clobbers A, local_0
+.macro Actor_set_facing_from_A
+    .local done
+    cmp #ActorFacing::NO_CHANGE
+    beq done
+    ; stash A
+    sta local_0
+    ; first zero out the actor's facing bits
+    lda #ActorFlagMask::facing ; A = The mask of which bits determine facing
+    eor #$ff                   ; Invert it
+    and ActorOffset::FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
+                               ; flags with facing bits zeroed
+    ora local_0                ; OR in desired facing bits
+    sta ActorOffset::FLAGS, X  ; store back as the actor's new flags
+    done:
 .endmacro
 
 .macro Actor_draw_actors N, draw_1x1, draw_2x2

@@ -9,6 +9,9 @@
 .export draw_1x1_actor_sprite
 .proc draw_1x1_actor_sprite     ; 52 cycles
     buffer_entry_ptr = addr_0
+    facing_offset = local_0
+    ;oam
+
     ldy #0                      ; 2 cycles
     ; high bytes of actor's little endian 16-bit position coords become
     ; screen coords
@@ -17,14 +20,25 @@
                                 ; 4 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
     iny                         ; 2 cycles
-    ; Tile number
+
+    ; Get facing offset to base tile number and stash it
+    lda ActorOffset::FLAGS, X   ; 4 cycles
+    and #ActorFlagMask::facing_tile_offset ; 2 cycles
+    lsr                         ; 2 cycles
+    sta facing_offset           ; 3 cycles
+    ; Get base tile number
     lda ActorOffset::BASE_TILE, X      ; A = actor::base_tile
                                 ; 4 cycles
+    ; Add facing offset to base_tile
+    adc facing_offset           ; 3 cycles
+    ; Store final effective tile number to OAM entry
     sta (buffer_entry_ptr), Y   ; 6 cycles
     iny                         ; 2 cycles
+
     ; OAM flags
     ; TODO compute OAM flags from actor state
-    lda #0                      ; 2 cycles
+    lda ActorOffset::FLAGS, X   ; 4 cycles
+    and #ActorFlagMask::facing_oam ; 2 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
     iny                         ; 2 cycles
     ; X screen coord

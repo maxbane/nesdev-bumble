@@ -59,41 +59,56 @@ main_palettes:
 .byte $11,$1B,$2B,$3B ; sp2 teal
 .byte $11,$12,$22,$32 ; sp3 marine
 
+; 11 byte lookup table for fun stuff
+button_dir_map:
+    ; BUTTON_UP     = %0001
+    ; BUTTON_DOWN   = %0010
+    ; BUTTON_LEFT   = %0100
+    ; BUTTON_RIGHT  = %1000
+    ; -------------------------------
+    ; Offset in this map = OR of above bits corresponding to depressed
+    ; direction buttons. Value of byte at offset = corresponding ActorFacing
+    ; constant
+    ; -------------------------------
+    ; Offset = 0, no direction button
+    .byte ActorFacing::NO_CHANGE ; special facing: no change
+    ; Offset = %0001, UP
+    .byte ActorFacing::UP
+    ; Offset = %0010, DOWN
+    .byte ActorFacing::DOWN
+    ; Offset = %0011, UP+DOWN (impossible on gamepad)
+    .byte ActorFacing::NO_CHANGE
+    ; Offset = %0100, LEFT
+    .byte ActorFacing::LEFT
+    ; Offset = %0101, UP+LEFT
+    .byte ActorFacing::UP_LEFT
+    ; Offset = %0110, DOWN+LEFT
+    .byte ActorFacing::DOWN_LEFT
+    ; Offset = %0111, DOWN+LEFT+UP (impossible)
+    .byte ActorFacing::NO_CHANGE
+    ; Offset = %1000, RIGHT
+    .byte ActorFacing::RIGHT
+    ; Offset = %1001, RIGHT+UP
+    .byte ActorFacing::UP_RIGHT
+    ; Offset = %1010, RIGHT+DOWN
+    .byte ActorFacing::DOWN_RIGHT
+    ; Remaining offsets correspond to impossible button combinations, so we
+    ; don't bother recording facings for them in the table, instead relying on
+    ; a check by the user of the table that he's not asking for an offset >
+    ; %1010 = 10
+    ;; Offset = %1011, RIGHT+DOWN+UP (impossible)
+    ;.byte ActorFacing::NO_CHANGE
+    ;; Offset = %1100, RIGHT+LEFT (impossible)
+    ;.byte ActorFacing::NO_CHANGE
+    ;; Offset = %1101, RIGHT+LEFT+UP (impossible)
+    ;.byte ActorFacing::NO_CHANGE
+    ;; Offset = %1110, RIGHT+LEFT+DOWN (impossible)
+    ;.byte ActorFacing::NO_CHANGE
+    ;; Offset = %1111, RIGHT+LEFT+DOWN+UP (impossible)
+    ;.byte ActorFacing::NO_CHANGE
+
 
 .segment "ZEROPAGE"
-; Reserve space for N_ACTORS actors, with a nice scope and labels for static
-; access to each.
-;.repeat Constants::N_ACTORS, I
-;    ;.out .sprintf ("actor_%02d", I)
-;    .scope .ident (.sprintf ("actor_%02d", I))
-;        actor_idx = I
-;        addr:
-;        .scope position
-;            xval:   .res 2
-;            yval:   .res 2
-;        .endscope
-;        .scope velocity
-;            xval:   .res 2
-;            yval:   .res 2
-;        .endscope
-;        base_tile:  .res 1
-;        flags:      .res 1
-;        ; flags mask:
-;        ; %7654 3210
-;        ;       ||||
-;        ;       |||+- is_2x2: Is actor 2x2 sprites (1) or 1 sprite (0)
-;        ;       +++-- actor's facing. 8 possible facings.
-;        ;             Bit 3 indicates diagonal (rotate CC 45 degrees).
-;        ;             000   = RIGHT
-;        ;             001   = LEFT
-;        ;             010   = UP
-;        ;             011   = DOWN
-;        ;             100   = UP-RIGHT
-;        ;             101   = DOWN-LEFT
-;        ;             110   = UP-LEFT
-;        ;             111   = DOWN-RIGHT
-;    .endscope
-;.endrepeat
 Actor_RESERVE_ACTORS Constants::N_ACTORS
 .define the_player actor_00
 
@@ -207,13 +222,29 @@ irq:
     and #Joy::BUTTON_A
     beq :+
         jsr do_flap
+        rts
     :
+
+    ; Look up the ActorFacing constant that corresponds to the bitmask of
+    ; currently depressed directional buttons, and set that as our actor's
+    ; facing
+    lda Joy::pad0
+    and #%11110000
+    .repeat 4
+        lsr ; huh is there a faster way to shift 4 bits right?
+    .endrepeat
+    tay
+    lda button_dir_map, Y
+    ldx #actor_01::addr
+    Actor_set_facing_from_A
     rts
 .endproc
 
 .proc do_flap
-    dx = the_player::velocity::xval
-    dy = the_player::velocity::yval
+    ;dx = the_player::velocity::xval
+    ;dy = the_player::velocity::yval
+    dx = actor_01::velocity::xval
+    dy = actor_01::velocity::yval
     lda Joy::pad0
     and #Joy::BUTTON_LEFT
     beq :++
