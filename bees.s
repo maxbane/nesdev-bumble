@@ -186,9 +186,9 @@ irq:
     ; zero velocity
     mathmac_set16 #$0000, the_player::velocity::xval, the_player::velocity::yval
     mathmac_set16 #$0000, actor_01::velocity::xval, actor_01::velocity::yval
-    lda #2
+    lda #$10
     sta the_player::base_tile
-    lda #1
+    lda #$01
     sta actor_01::base_tile
     lda #(ActorFlagMask::is_2x2)
     sta the_player::flags
