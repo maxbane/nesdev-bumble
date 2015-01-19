@@ -31,7 +31,7 @@ locals.o: locals.s
 actor_routines.o: actor_routines.s locals.inc constants.inc actor.inc
 	${CA65} ${CAOPTS} -o actor_routines.o actor_routines.s
 
-ai.o: ai.s ai.inc locals.inc joy.inc actor.inc constants.inc math_macros.inc
+ai.o: ai.s locals.inc joy.inc actor.inc constants.inc math_macros.inc
 	${CA65} ${CAOPTS} -o ai.o ai.s
 
 chr/sprites.chr: chr/sprites.png bin/bmp2nes
