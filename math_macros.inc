@@ -175,6 +175,30 @@ math_macros_included = 1
     sta resultAddr + 1
 .endmacro
 
+; Add two 16 bit numbers together and store the result in another memory
+; location. The first argument may be an address or an immediate mode value.
+; All addresses have the X index register added to them.
+;
+; On exit: A = ??, X & Y are unchanged.
+.macro mathmac_add16_xoff valueOrAddr0, valueAddr1, resultAddr
+    clc
+    .if (.match (.left (1, {valueOrAddr0}), #))
+        lda #<(.right (.tcount ({valueOrAddr0})-1, {valueOrAddr0}))
+    .else
+        lda valueOrAddr0 + 0, X
+    .endif
+    adc valueAddr1 + 0, X
+    sta resultAddr + 0, X
+
+    .if (.match (.left (1, {valueOrAddr0}), #))
+        lda #>(.right (.tcount ({valueOrAddr0})-1, {valueOrAddr0}))
+    .else
+        lda valueOrAddr0 + 1, X
+    .endif
+    adc valueAddr1 + 1, X
+    sta resultAddr + 1, X
+.endmacro
+
 ; Negate the signed 16-bit number at location valueAddr0 and store the result
 ; at location resultAddr.
 ; On exit: A = ??, X & Y are unchanged.

@@ -1,11 +1,12 @@
-.include "actor.inc"
-.include "math_macros.inc"
-
 ; Inline macros for actor physics. Macros assume that all of the actor_NN
 ; labels have been reserved or imported in the current assembly unit
 
 .ifndef Physics_included
+Physics_included = 1
     
+.include "actor.inc"
+.include "math_macros.inc"
+
 .macro Physics_do_gravity_inline N_ACTORS, DDY
     .scope 
         .repeat N_ACTORS, I

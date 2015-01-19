@@ -17,8 +17,9 @@ Joy_included = 1
     BUTTON_LEFT   = $40
     BUTTON_RIGHT  = $80
 
-    .importzp pad0
+    .importzp pad_0
+    .importzp new_buttons_0
     .import   poll
-    .import   lda_new_buttons
+    .import   store_new_buttons
 .endscope ; Joy
 .endif ; .ifndef Joy_included

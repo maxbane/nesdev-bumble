@@ -10,8 +10,10 @@
 .export PAD1_ADDR = $4017
 
 .segment "ZEROPAGE"
-pad0: .res 1
-.exportzp pad0
+pad_0: .res 1
+.exportzp pad_0
+new_buttons_0: .res 1
+.exportzp new_buttons_0
 
 .segment "CODE"
 ; Joy::poll: this reads the gamepad state into the variable labelled "gamepad"
@@ -37,41 +39,42 @@ pad0: .res 1
         ror
         dex
         bne :-
-    sta pad0
+    sta pad_0
     rts
 .endproc
 
-.export lda_new_buttons
-.proc lda_new_buttons
+.export store_new_buttons
+.proc store_new_buttons
     ; last frame's joypad state
     last_frame_joy = local_0
     ; we'll need to read twice to account for the DPCM glitch. This holds our
     ; first read.
     first_read = local_1
 
-    lda Joy::pad0
+    lda Joy::pad_0
     sta last_frame_joy
 
     jsr Joy::poll
-    lda Joy::pad0
+    lda Joy::pad_0
     sta first_read
     jsr Joy::poll
 
     ; make sure the two reads agree
-    lda Joy::pad0
+    lda Joy::pad_0
     cmp first_read
     beq :+
         ; reads disagreed.
         ; no input handling this frame. restore last frame's state as "current"
         lda last_frame_joy
-        sta Joy::pad0
+        sta Joy::pad_0
         rts
     :
 
     ; determine new button depressions
     lda last_frame_joy  ; A = buttons that were down last frame
     eor #$ff            ; A = buttons that were up last frame
-    and Joy::pad0       ; A = buttons down now and up last frame 
+    and Joy::pad_0      ; A = buttons down now and up last frame 
+    sta Joy::new_buttons_0
     rts
 .endproc
 

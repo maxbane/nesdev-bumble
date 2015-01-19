@@ -20,8 +20,12 @@ Actor_included = 1
                 xval:       .res 2
                 yval:       .res 2
             .endscope
+            ; index into Sprite pattern table
             base_tile:      .res 1
+            ; See ActorRenderFlagMask
             render_flags:   .res 1
+            ; Index into AI routine jump table
+            ai_routine:     .res 1
         .endscope
     .endrepeat
     .out    .sprintf("INFO: Reserved %d zeropage bytes for %d actors.", \
@@ -42,6 +46,7 @@ Actor_included = 1
             .endscope
             .exportzp base_tile
             .exportzp render_flags
+            .exportzp ai_routine
         .endscope
     .endrepeat
 .endmacro
@@ -59,8 +64,10 @@ Actor_included = 1
     BASE_TILE  = 8
     ; 8 bits of various render control flags; see ActorRenderFlagMask
     RENDER_FLAGS = 9
+    ; 8-bit index into AI routine jump-table
+    AI_ROUTINE = 10
 
-    ACTOR_SIZE = 10
+    ACTOR_SIZE = 11
 .endscope
 
 .enum ActorRenderFlagMask
@@ -72,7 +79,7 @@ Actor_included = 1
     is_active           = %00100000
     ; Sprite palette index (for now, same palette for all quadrants of 2x2
     ; sprites)
-    palette             = %00011000
+    palette             = %00011000 ; TODO
 
     ; Facing bits
     facing              = %11000110
