@@ -205,9 +205,9 @@ irq:
     sta the_player::base_tile
     lda #$01
     sta actor_01::base_tile
-    lda #(ActorRenderFlagMask::is_2x2)
+    lda #(ActorRenderFlagMask::is_2x2 | ActorRenderFlagMask::is_active)
     sta the_player::render_flags
-    lda #0
+    lda #(ActorRenderFlagMask::is_active)
     sta actor_01::render_flags
     rts
 .endproc

@@ -11,8 +11,11 @@
         .repeat N_ACTORS, I
             .define actor_i .ident (.sprintf ("actor_%02d", I))
             .scope 
+                Actor_is_active actor_i::render_flags
+                beq next
                 dy = actor_i::velocity::yval
                 mathmac_add16 #DDY, dy, dy
+                next:
             .endscope
             .undefine actor_i
         .endrepeat
@@ -26,6 +29,8 @@
     .repeat N_ACTORS, I
         .define actor_i .ident (.sprintf ("actor_%02d", I))
         .scope 
+            Actor_is_active actor_i::render_flags
+            beq next
             px = actor_i::position::xval
             dx = actor_i::velocity::xval
             py = actor_i::position::yval
@@ -83,6 +88,7 @@
                     ror dy + 0
                 collision_done:
             .endif
+            next:
         .endscope
         .undefine actor_i
     .endrepeat

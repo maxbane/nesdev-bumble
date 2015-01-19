@@ -153,6 +153,13 @@ Actor_included = 1
     done:
 .endmacro
 
+; sets the zero flag if actor's render_flags indicate it is not active, clears
+; the zero flag if it is active
+.macro Actor_is_active render_flags
+    lda render_flags
+    and #ActorRenderFlagMask::is_active
+.endmacro
+
 .macro Actor_draw_actors N, draw_1x1, draw_2x2
     ; address of current 4-byte oam buffer entry we are updating
     buffer_entry_ptr = addr_0
@@ -164,6 +171,8 @@ Actor_included = 1
     .repeat N, I
         .define actor_i .ident (.sprintf ("actor_%02d", I))
         .scope 
+            Actor_is_active actor_i::render_flags
+            beq do_draw_done
             .if I > 0
                 ; advance the buffer entry pointer
                 lda buffer_entry_ptr ; 3 cycles
