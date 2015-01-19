@@ -235,16 +235,14 @@ irq:
     .endrepeat
     tay
     lda button_dir_map, Y
-    ldx #actor_01::addr
+    ldx #the_player::addr
     Actor_set_facing_from_A
     rts
 .endproc
 
 .proc do_flap
-    ;dx = the_player::velocity::xval
-    ;dy = the_player::velocity::yval
-    dx = actor_01::velocity::xval
-    dy = actor_01::velocity::yval
+    dx = the_player::velocity::xval
+    dy = the_player::velocity::yval
     lda Joy::pad0
     and #Joy::BUTTON_LEFT
     beq :++

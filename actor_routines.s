@@ -7,7 +7,7 @@
 .scope Actor
 
 .export draw_1x1_actor_sprite
-.proc draw_1x1_actor_sprite     ; 52 cycles
+.proc draw_1x1_actor_sprite     ; 68 cycles
     buffer_entry_ptr = addr_0
     facing_offset = local_0
     ;oam
@@ -36,7 +36,6 @@
     iny                         ; 2 cycles
 
     ; OAM flags
-    ; TODO compute OAM flags from actor state
     lda ActorOffset::FLAGS, X   ; 4 cycles
     and #ActorFlagMask::facing_oam ; 2 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
@@ -59,6 +58,7 @@
     ; --+--  Quadrant index is entry offset in oam buffer.
     ; 2 | 1
     buffer_entry_ptr = addr_0
+    facing_offset = local_0
     ; if position::xval is far to the right onscreen, skip quadrants 0 and 1
     lda ActorOffset::POSITION_X+1, X      ; A = MSB(actor::position::xval)
     cmp #(Constants::SCREEN_WIDTH - 8)
@@ -91,6 +91,7 @@
             adc #4                
             sta buffer_entry_ptr 
         .endif
+        ; Store screen Y coord to OAM buffer
         ldy #0
         lda ActorOffset::POSITION_Y+1, X      ; A = MSB(actor::position::yval)
         .if I = 1 || I = 2
@@ -99,20 +100,107 @@
         .endif
         sta (buffer_entry_ptr), Y
         iny
-        lda ActorOffset::BASE_TILE, X      ; A = actor::base_tile
-        .if I = 0
-            adc #1
-        .elseif I = 1
-            adc #17
-        .elseif I = 2
-            adc #16
-        .endif
+
+        ; This quadrant's tile number is determined by:
+        ;  actor::base_tile + quadrant_offset + facing_offset
+        .scope 
+
+        ; Get facing offset and stash it
+        lda ActorOffset::FLAGS, X   ; 4 cycles
+        and #ActorFlagMask::facing_tile_offset ; 2 cycles
+        ; conveniently the offset is already multiplied by 2 (actor size) in
+        ; the FLAGS
+        sta facing_offset           ; 3 cycles
+        ; Determine tile offset for this quadrant, which depends on possible
+        ; horizontal/vertical mirroring, and add it to actor's base_tile
+        lda ActorOffset::FLAGS, X   ; 4 cycles
+        and #ActorFlagMask::facing_oam ; 2 cycles
+
+        ; As long as we have the oam flags, might as well store them to the OAM
+        ; buffer
+        iny
+        sta (buffer_entry_ptr), Y
+        dey
+
+        ; determine quadrant offset
+        cmp #%00000000
+        bne :+
+            lda ActorOffset::BASE_TILE, X      ; A = actor::base_tile
+            clc
+            .if I = 0
+                adc #1
+            .elseif I = 1
+                adc #17
+            .elseif I = 2
+                adc #16
+            .elseif I = 3
+                nop
+            .endif
+            jmp set_tile
+        :
+        cmp #%01000000
+        bne :+
+            ; horiz. flip
+            lda ActorOffset::BASE_TILE, X      ; A = actor::base_tile
+            clc
+            .if I = 0
+                nop
+            .elseif I = 1
+                adc #16
+            .elseif I = 2
+                adc #17
+            .elseif I = 3
+                adc #1
+            .endif
+            jmp set_tile
+        :
+        cmp #%10000000
+        bne :+
+            ; vert. flip
+            lda ActorOffset::BASE_TILE, X      ; A = actor::base_tile
+            clc
+            .if I = 0
+                adc #17
+            .elseif I = 1
+                adc #1
+            .elseif I = 2
+                nop
+            .elseif I = 3
+                adc #16
+            .endif
+            jmp set_tile
+        :
+        cmp #%11000000
+        bne :+
+            ; horiz. and vert. flip
+            lda ActorOffset::BASE_TILE, X      ; A = actor::base_tile
+            clc
+            .if I = 0
+                adc #16
+            .elseif I = 1
+                nop
+            .elseif I = 2
+                adc #1
+            .elseif I = 3
+                adc #17
+            .endif
+            ;jmp set_tile
+        :
+        set_tile:
+        .endscope
+        ; Add facing offset to base_tile
+        adc facing_offset           ; 3 cycles
+        ; Store final effective tile number to OAM buffer
         sta (buffer_entry_ptr), Y
         iny
-        ; TODO compute OAM flags from actor state
-        lda #0
-        sta (buffer_entry_ptr), Y
+
+        ; OAM flags
+        ;lda ActorOffset::FLAGS, X   ; 4 cycles
+        ;and #ActorFlagMask::facing_oam ; 2 cycles
+        ;sta (buffer_entry_ptr), Y
         iny
+
+        ; Store screen x coord to OAM buffer
         lda ActorOffset::POSITION_X+1, X      ; A = MSB(actor::position::xval)
         .if I < 2
             ; right two quadrants: add 8px to screen x

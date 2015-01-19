@@ -8,6 +8,8 @@ local_0:  .res 1
 local_1:  .res 1
 .exportzp local_2
 local_2:  .res 1
+.exportzp local_3
+local_3:  .res 1
 
 .exportzp addr_0
 addr_0:   .res 2

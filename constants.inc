@@ -14,8 +14,8 @@ Constants_included = 1
     ; Idea is to keep vector magnitude the same
     BASE_FLAP_ACCEL_DIAG    = $005A ; sqrt((ddy^2)/2)
 
-    FLOOR_Y                 = 231
-    CEILING_Y               = 12
+    FLOOR_Y                 = 223
+    CEILING_Y               = 8
     SCREEN_WIDTH            = 256
 .endscope
 
