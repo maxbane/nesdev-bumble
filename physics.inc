@@ -43,8 +43,8 @@
 
             .ifnblank FLOOR_Y
                 ; 2x2 actors effectively have their floor shifted up by 8 pixels
-                lda actor_i::flags
-                and #ActorFlagMask::is_2x2
+                lda actor_i::render_flags
+                and #ActorRenderFlagMask::is_2x2
                 beq :+
                     ; 2x2 actor
                     lda py+1
@@ -58,8 +58,8 @@
                 bcc collision_done
                 hit_floor:
                     ; clip to floor
-                    lda actor_i::flags
-                    and #ActorFlagMask::is_2x2
+                    lda actor_i::render_flags
+                    and #ActorRenderFlagMask::is_2x2
                     beq :+
                         mathmac_set16 #((FLOOR_Y - 9) * $100), py
                         jmp hit_common

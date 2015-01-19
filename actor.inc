@@ -13,20 +13,15 @@ Actor_included = 1
             actor_idx = I
             addr:
             .scope position
-                xval:   .res 2
-                yval:   .res 2
+                xval:       .res 2
+                yval:       .res 2
             .endscope
             .scope velocity
-                xval:   .res 2
-                yval:   .res 2
+                xval:       .res 2
+                yval:       .res 2
             .endscope
-            base_tile:  .res 1
-            flags:      .res 1
-            ; flags mask:
-            ; %7654 3210
-            ;       ||||
-            ;       |||+- is_2x2: Is actor 2x2 sprites (1) or 1 sprite (0)
-            ;       +++-- actor's facing. 8 possible facings.
+            base_tile:      .res 1
+            render_flags:   .res 1
         .endscope
     .endrepeat
     .out    .sprintf("INFO: Reserved %d zeropage bytes for %d actors.", \
@@ -46,7 +41,7 @@ Actor_included = 1
                 .exportzp yval
             .endscope
             .exportzp base_tile
-            .exportzp flags
+            .exportzp render_flags
         .endscope
     .endrepeat
 .endmacro
@@ -62,25 +57,33 @@ Actor_included = 1
     VELOCITY_Y = 6
     ; 8-bit tile number in pattern table
     BASE_TILE  = 8
-    ; 8 bits of various state flags; see ActorFlagMask
-    FLAGS      = 9
+    ; 8 bits of various render control flags; see ActorRenderFlagMask
+    RENDER_FLAGS = 9
 
     ACTOR_SIZE = 10
 .endscope
 
-.enum ActorFlagMask
+.enum ActorRenderFlagMask
     ; Actors can be 1x1 sprite or 2x2 sprites. In the latter case, the
     ; base_tile is the pattern-table index of the upper-left sprite, and
     ; different drawing logic, collision logic, etc. must apply to the actor.
     is_2x2              = %00000001
+    ; Whether to move and draw this actor each frame
+    is_active           = %00100000
+    ; Sprite palette index (for now, same palette for all quadrants of 2x2
+    ; sprites)
+    palette             = %00011000
 
+    ; Facing bits
     facing              = %11000110
+    ; Facing sub-bits: OAM horizontal/vertical mirroring flags
     facing_oam          = %11000000
+    ; Facing sub-bits: offset to base_tile index in pattern table
     facing_tile_offset  = %00000110
 .endenum
 
 .define __actor_make_facing(oam_76_bits, tile_offset) \
-    ((oam_76_bits << 6) | (tile_offset << 1) & ActorFlagMask::facing)
+    ((oam_76_bits << 6) | (tile_offset << 1) & ActorRenderFlagMask::facing)
 
 .enum ActorFacing
 ; Actor facing    | OAM.76    | Tile offset (times actor size, 1 or 2)
@@ -121,12 +124,12 @@ Actor_included = 1
         cmp #ActorFacing::NO_CHANGE
         beq done
         ; first zero out the actor's facing bits
-        lda #ActorFlagMask::facing ; A = The mask of which bits determine facing
+        lda #ActorRenderFlagMask::facing ; A = The mask of which bits determine facing
         eor #$ff                   ; Invert it
-        and ActorOffset::FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
+        and ActorOffset::RENDER_FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
                                    ; flags with facing bits zeroed
         ora the_facing             ; OR in desired facing bits
-        sta ActorOffset::FLAGS, X  ; store back as the actor's new flags
+        sta ActorOffset::RENDER_FLAGS, X  ; store back as the actor's new flags
         done:
     .endif
 .endmacro
@@ -141,12 +144,12 @@ Actor_included = 1
     ; stash A
     sta local_0
     ; first zero out the actor's facing bits
-    lda #ActorFlagMask::facing ; A = The mask of which bits determine facing
+    lda #ActorRenderFlagMask::facing ; A = The mask of which bits determine facing
     eor #$ff                   ; Invert it
-    and ActorOffset::FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
+    and ActorOffset::RENDER_FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
                                ; flags with facing bits zeroed
     ora local_0                ; OR in desired facing bits
-    sta ActorOffset::FLAGS, X  ; store back as the actor's new flags
+    sta ActorOffset::RENDER_FLAGS, X  ; store back as the actor's new flags
     done:
 .endmacro
 
@@ -173,8 +176,8 @@ Actor_included = 1
             ; (in zeropage) from X, and the current OAM buffer entry pointer
             ; from addr_0
             ldx #actor_i::addr
-            lda actor_i::flags
-            and #ActorFlagMask::is_2x2
+            lda actor_i::render_flags
+            and #ActorRenderFlagMask::is_2x2
             beq do_draw_1x1
             ; XXX Think about whether we want to inline these subroutines as
             ; macros. Could save a good few cycles by knowing all the addresses

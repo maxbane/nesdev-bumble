@@ -95,6 +95,9 @@ nmt_buffer: .res 256
 palette_buffer:    .res 32
 .export palette_buffer
 
+; Reserve a page for an object attribute map buffer
+.segment "OAM"
+
 ; An entry in the sprite object attribute memory
 .struct OAMEntry
 	y_coord		.byte
@@ -103,8 +106,6 @@ palette_buffer:    .res 32
 	x_coord		.byte
 .endstruct
 
-; Reserve a page for an object attribute map buffer
-.segment "OAM"
 ; sprite OAM data to be uploaded by DMA
 oam_buffer: .res 64 * .sizeof(OAMEntry)
 .export oam_buffer

@@ -22,8 +22,8 @@
     iny                         ; 2 cycles
 
     ; Get facing offset to base tile number and stash it
-    lda ActorOffset::FLAGS, X   ; 4 cycles
-    and #ActorFlagMask::facing_tile_offset ; 2 cycles
+    lda ActorOffset::RENDER_FLAGS, X   ; 4 cycles
+    and #ActorRenderFlagMask::facing_tile_offset ; 2 cycles
     lsr                         ; 2 cycles
     sta facing_offset           ; 3 cycles
     ; Get base tile number
@@ -36,8 +36,8 @@
     iny                         ; 2 cycles
 
     ; OAM flags
-    lda ActorOffset::FLAGS, X   ; 4 cycles
-    and #ActorFlagMask::facing_oam ; 2 cycles
+    lda ActorOffset::RENDER_FLAGS, X   ; 4 cycles
+    and #ActorRenderFlagMask::facing_oam ; 2 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
     iny                         ; 2 cycles
     ; X screen coord
@@ -106,15 +106,15 @@
         .scope 
 
         ; Get facing offset and stash it
-        lda ActorOffset::FLAGS, X   ; 4 cycles
-        and #ActorFlagMask::facing_tile_offset ; 2 cycles
+        lda ActorOffset::RENDER_FLAGS, X   ; 4 cycles
+        and #ActorRenderFlagMask::facing_tile_offset ; 2 cycles
         ; conveniently the offset is already multiplied by 2 (actor size) in
-        ; the FLAGS
+        ; the RENDER_FLAGS
         sta facing_offset           ; 3 cycles
         ; Determine tile offset for this quadrant, which depends on possible
         ; horizontal/vertical mirroring, and add it to actor's base_tile
-        lda ActorOffset::FLAGS, X   ; 4 cycles
-        and #ActorFlagMask::facing_oam ; 2 cycles
+        lda ActorOffset::RENDER_FLAGS, X   ; 4 cycles
+        and #ActorRenderFlagMask::facing_oam ; 2 cycles
 
         ; As long as we have the oam flags, might as well store them to the OAM
         ; buffer
@@ -195,8 +195,8 @@
         iny
 
         ; OAM flags
-        ;lda ActorOffset::FLAGS, X   ; 4 cycles
-        ;and #ActorFlagMask::facing_oam ; 2 cycles
+        ;lda ActorOffset::RENDER_FLAGS, X   ; 4 cycles
+        ;and #ActorRenderFlagMask::facing_oam ; 2 cycles
         ;sta (buffer_entry_ptr), Y
         iny
 
