@@ -4,7 +4,7 @@ set -o nounset
 
 GIMP="$(which gimp)"
 if [ ! -x "$GIMP" ]; then
-    echo "$0: \`gimp' not found on PATH."
+    echo "$0: \`gimp' not found on PATH." >&2
     exit 1
 fi
 
