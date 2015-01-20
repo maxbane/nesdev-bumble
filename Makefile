@@ -6,9 +6,22 @@ LD65=${CC65BINDIR}/ld65
 CAOPTS=-g
 LDOPTS=
 
-.PHONY: clean all
+NESTOPIADIR=../../emu/nestopia-1.46.2
+FCEUXDIR=../../emu/fceux-2.2.2-win32
+NINTENDULATORDIR=../../emu/nintendulatordx-v34
+
+.PHONY: clean all nestopia nintendulator
 
 all: bees.nes
+
+nestopia: bees.nes
+	${NESTOPIADIR}/nestopia bees.nes
+
+nintendulator: bees.nes
+	wine ${NINTENDULATORDIR}/Nintendulator.exe bees.nes
+
+fceux: bees.nes
+	wine ${FCEUXDIR}/fceux.exe bees.nes
 
 bees.nes: locals.o bees.o ppu.o joy.o actor_routines.o ai.o ldcfg/nrom.cfg 
 	${LD65} ${LDOPTS} -o bees.nes -C ldcfg/nrom.cfg -m bees.map.txt \
