@@ -12,25 +12,25 @@ NINTENDULATORDIR=../../emu/nintendulatordx-v34
 
 .PHONY: clean all nestopia nintendulator
 
-all: bees.nes
+all: bumble.nes
 
-nestopia: bees.nes
-	${NESTOPIADIR}/nestopia bees.nes
+nestopia: bumble.nes
+	${NESTOPIADIR}/nestopia bumble.nes 2> /dev/null > /dev/null
 
-nintendulator: bees.nes
-	wine ${NINTENDULATORDIR}/Nintendulator.exe bees.nes
+nintendulator: bumble.nes
+	wine ${NINTENDULATORDIR}/Nintendulator.exe bumble.nes 2> /dev/null
 
-fceux: bees.nes
-	wine ${FCEUXDIR}/fceux.exe bees.nes
+fceux: bumble.nes
+	wine ${FCEUXDIR}/fceux.exe bumble.nes 2> /dev/null
 
-bees.nes: locals.o bees.o ppu.o joy.o actor_routines.o ai.o ldcfg/nrom.cfg 
-	${LD65} ${LDOPTS} -o bees.nes -C ldcfg/nrom.cfg -m bees.map.txt \
-		-Ln bees.labels.txt --dbgfile bees.nes.dbg \
-		bees.o ppu.o joy.o locals.o actor_routines.o ai.o
+bumble.nes: locals.o main.o ppu.o joy.o actor_routines.o ai.o ldcfg/nrom.cfg 
+	${LD65} ${LDOPTS} -o bumble.nes -C ldcfg/nrom.cfg -m bumble.map.txt \
+		-Ln bumble.labels.txt --dbgfile bumble.nes.dbg \
+		main.o ppu.o joy.o locals.o actor_routines.o ai.o
 
-bees.o: bees.s locals.inc ines.inc ppu.inc joy.inc constants.inc actor.inc \
+main.o: main.s locals.inc ines.inc ppu.inc joy.inc constants.inc actor.inc \
 		ai.inc actor_routines.inc physics.inc math_macros.inc chr/sprites.chr
-	${CA65} ${CAOPTS} -o bees.o bees.s
+	${CA65} ${CAOPTS} -o main.o main.s
 
 ppu.o: ppu.s
 	${CA65} ${CAOPTS} -o ppu.o ppu.s
@@ -54,5 +54,5 @@ chr/sprites.png: chr/sprites.xcf bin/xcf2png
 	bin/xcf2png chr/sprites.xcf chr/sprites.png
 
 clean:
-	rm -f locals.o bees.nes bees.o ppu.o joy.o actor_routines.o \
+	rm -f locals.o bumble.nes main.o ppu.o joy.o actor_routines.o \
 		ai.o chr/sprites.png chr/sprites.chr *.map.txt *.labels.txt *.nes.dbg
