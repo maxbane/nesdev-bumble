@@ -79,7 +79,7 @@ Actor_included = 1
     is_active           = %00100000
     ; Sprite palette index (for now, same palette for all quadrants of 2x2
     ; sprites)
-    palette             = %00011000 ; TODO
+    palette             = %00011000
 
     ; Facing bits
     facing              = %11000110

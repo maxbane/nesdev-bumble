@@ -6,21 +6,24 @@
 
 .scope Actor
 
+; call with X = actor::addr, addr_0 = pointer to oam buffer entry
 .export draw_1x1_actor_sprite
-.proc draw_1x1_actor_sprite     ; 68 cycles
+.proc draw_1x1_actor_sprite     ; 88 cycles with rts (but not with inbound jsr)
     buffer_entry_ptr = addr_0
     facing_offset = local_0
-    ;oam
+    palette_idx   = local_0 ; re-use
 
     ldy #0                      ; 2 cycles
+
     ; high bytes of actor's little endian 16-bit position coords become
     ; screen coords
-    ; Y screen coord
+    ; Y screen coord (12 cycles)
     lda ActorOffset::POSITION_Y+1, X      ; A = MSB(actor::position::yval)
                                 ; 4 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
     iny                         ; 2 cycles
 
+    ; Tile number (26 cycles)
     ; Get facing offset to base tile number and stash it
     lda ActorOffset::RENDER_FLAGS, X   ; 4 cycles
     and #ActorRenderFlagMask::facing_tile_offset ; 2 cycles
@@ -35,16 +38,24 @@
     sta (buffer_entry_ptr), Y   ; 6 cycles
     iny                         ; 2 cycles
 
-    ; OAM flags
-    lda ActorOffset::RENDER_FLAGS, X   ; 4 cycles
+    ; OAM flags (32 cycles)
+    lda ActorOffset::RENDER_FLAGS, X  ; 4 cycles
+    and #ActorRenderFlagMask::palette ; 2 cycles
+    lsr                         ; 2 cycles
+    lsr                         ; 2 cycles
+    lsr                         ; 2 cycles
+    sta palette_idx             ; 3 cycles
+    lda ActorOffset::RENDER_FLAGS, X     ; 4 cycles
     and #ActorRenderFlagMask::facing_oam ; 2 cycles
+    ora palette_idx             ; 3 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
     iny                         ; 2 cycles
-    ; X screen coord
-    ;lda actor_i::position::xval + 1
+
+    ; X screen coord (10 cycles)
     lda ActorOffset::POSITION_X+1, X      ; A = MSB(actor::position::xval)
                                 ; 4 cycles
     sta (buffer_entry_ptr), Y   ; 6 cycles
+
     rts                         ; 6 cycles
 .endproc
 
@@ -58,7 +69,8 @@
     ; --+--  Quadrant index is entry offset in oam buffer.
     ; 2 | 1
     buffer_entry_ptr = addr_0
-    facing_offset = local_0
+    facing_offset    = local_0
+    palette_idx      = local_0 ; safe to reuse
     ; if position::xval is far to the right onscreen, skip quadrants 0 and 1
     lda ActorOffset::POSITION_X+1, X      ; A = MSB(actor::position::xval)
     cmp #(Constants::SCREEN_WIDTH - 8)
@@ -115,13 +127,6 @@
         ; horizontal/vertical mirroring, and add it to actor's base_tile
         lda ActorOffset::RENDER_FLAGS, X   ; 4 cycles
         and #ActorRenderFlagMask::facing_oam ; 2 cycles
-
-        ; As long as we have the oam flags, might as well store them to the OAM
-        ; buffer
-        iny
-        sta (buffer_entry_ptr), Y
-        dey
-
         ; determine quadrant offset
         cmp #%00000000
         bne :+
@@ -194,10 +199,17 @@
         sta (buffer_entry_ptr), Y
         iny
 
-        ; OAM flags
-        ;lda ActorOffset::RENDER_FLAGS, X   ; 4 cycles
-        ;and #ActorRenderFlagMask::facing_oam ; 2 cycles
-        ;sta (buffer_entry_ptr), Y
+        ; OAM flags (32 cycles)
+        lda ActorOffset::RENDER_FLAGS, X  ; 4 cycles
+        and #ActorRenderFlagMask::palette ; 2 cycles
+        lsr                         ; 2 cycles
+        lsr                         ; 2 cycles
+        lsr                         ; 2 cycles
+        sta palette_idx             ; 3 cycles
+        lda ActorOffset::RENDER_FLAGS, X     ; 4 cycles
+        and #ActorRenderFlagMask::facing_oam ; 2 cycles
+        ora palette_idx             ; 3 cycles
+        sta (buffer_entry_ptr), Y   ; 6 cycles
         iny
 
         ; Store screen x coord to OAM buffer
