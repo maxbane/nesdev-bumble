@@ -175,8 +175,10 @@ irq:
 
     lda #(ActorRenderFlagMask::is_2x2 | ActorRenderFlagMask::is_active)
     sta the_player::render_flags
-    lda #(ActorRenderFlagMask::is_active | (3 << 3))
+    lda #(ActorRenderFlagMask::is_active)
     sta actor_01::render_flags
+    ldx #actor_01::addr
+    Actor_set_palette 2
 
     lda #AI::Routine::PLAYER0_CONTROL
     sta the_player::ai_routine

@@ -117,7 +117,8 @@ Actor_included = 1
 
 ; Set an actor's facing from a macro argument or from the accumulator if the
 ; argument is blank.
-; @macroparam facing A constant from the ActorFacing enum.
+; @macroparam facing A constant from the ActorFacing enum -- either an
+; immediate-mode constant or an address.
 ; @param X actor::addr
 ; @clobbers A, local_0 (if the_facing is blank)
 .macro Actor_set_facing the_facing
@@ -165,6 +166,16 @@ Actor_included = 1
 .macro Actor_is_active render_flags
     lda render_flags
     and #ActorRenderFlagMask::is_active
+.endmacro
+
+.macro Actor_set_palette palette_index
+    ; first zero out the actor's facing bits
+    lda #ActorRenderFlagMask::palette ; A = The mask of which bits determine palette
+    eor #$ff                          ; Invert it
+    and ActorOffset::RENDER_FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
+                                      ; flags with palette bits zeroed
+    ora #(palette_index << 3)         ; OR in desired palette bits
+    sta ActorOffset::RENDER_FLAGS, X  ; store back as the actor's new flags
 .endmacro
 
 .macro Actor_draw_actors N, draw_1x1, draw_2x2
