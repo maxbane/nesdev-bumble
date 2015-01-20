@@ -131,10 +131,19 @@ irq:
     ; no rts
 .endproc
 
+; Call with A = Joy::new_buttons_?
+.macro handle_input_gameplay
+    jsr Joy::store_new_buttons
+    and #Joy::BUTTON_START
+    beq :+
+        jsr loop_paused
+    :
+.endmacro
+
 ; main loop for core gameplay
 .proc loop_gameplay
     ; loop forever
-    jsr Joy::store_new_buttons
+    handle_input_gameplay
     AI_do_ai Constants::N_ACTORS
     Physics_do_gravity_inline Constants::N_ACTORS, Constants::GRAVITY_DDY
     Physics_move_actors_with_bounce_inline Constants::N_ACTORS, \
@@ -171,9 +180,18 @@ irq:
 
     lda #AI::Routine::PLAYER0_CONTROL
     sta the_player::ai_routine
-    lda #AI::Routine::NO_BRAIN
+    ;lda #AI::Routine::NO_BRAIN
     sta actor_01::ai_routine
     rts
 .endproc
 
-
+.proc loop_paused
+    ; whoo do nothing
+    jsr PPU::update
+    jsr Joy::store_new_buttons
+    and #Joy::BUTTON_START
+    beq :+
+        rts
+    :
+    jmp loop_paused
+.endproc
