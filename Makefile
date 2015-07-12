@@ -51,7 +51,7 @@ ai.o: 				locals.inc joy.inc actor.inc constants.inc math_macros.inc
 # Emulator locations
 NESTOPIADIR 	= ../../emu/nestopia-1.46.2
 FCEUXDIR		= ../../emu/fceux-2.2.2-win32
-NINTENDULATORDIR= ../../emu/nintendulatordx-v34
+NINTENDULATORDIR= ../../emu/nintendulatordx-v35
 
 # Tool locations
 CC65BINDIR	= $(CC65DIR)/bin
