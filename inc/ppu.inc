@@ -38,4 +38,55 @@ PPU_included = 1
     .import clear_background
 
 .endscope ; PPU
+
+.macro PPU_sta_oam_byte oam_entry, byteno
+	sta oam_buffer + (oam_entry * 4) + byteno
+.endmacro
+
+; example:
+;   ; sprite 2 gets x=234, y=124, tile number = 3, attributes = 0
+;   PPU_update_oam_entry 2, #234, #3, #0, #124
+; oam_entry must be a bare numeral
+; remaining arguments may be immediate mode or addresses, including indirect
+; Clobbers X and A.
+.macro PPU_update_known_oam_entry oam_entry, ypos, tileno, attributes, xpos
+	ldx #(oam_entry * 4)
+
+	; load and store our four arguments
+	lda ypos
+	sta oam_buffer, X
+	inx
+	lda tileno
+	sta oam_buffer, X
+	inx
+	lda attributes
+	sta oam_buffer, X
+	inx
+	lda xpos
+	sta oam_buffer, X
+.endmacro
+
+; call with:
+;	A = index of oam_entry to update
+; Clobbers X and A.
+.macro PPU_update_oam_entry ypos, tileno, attributes, xpos
+	; A = A * 4
+	asl
+	asl
+	; X = A
+	tax
+	; load and store our four arguments
+	lda ypos
+	sta oam_buffer, X
+	inx
+	lda tileno
+	sta oam_buffer, X
+	inx
+	lda attributes
+	sta oam_buffer, X
+	inx
+	lda xpos
+	sta oam_buffer, X
+.endmacro
+
 .endif ; .ifndef PPU_included

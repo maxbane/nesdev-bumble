@@ -93,7 +93,7 @@ Actor_included = 1
     ((oam_76_bits << 6) | (tile_offset << 1) & ActorRenderFlagMask::facing)
 
 .enum ActorFacing
-; Actor facing    | OAM.76    | Tile offset (times actor size, 1 or 2)
+; Actor facing    | OAM.76    | Tile offset (times actor size, 0, 1, 2 or 3)
 ; ----------------+-----------+------------
 ; RIGHT           | 00        | 0
   RIGHT         = __actor_make_facing(%00, 0)
@@ -108,9 +108,9 @@ Actor_included = 1
 ; UP-LEFT         | 01        | 2
   UP_LEFT       = __actor_make_facing(%01, 2)
 ; DOWN-RIGHT      | 10        | 2
-  DOWN_RIGHT    = __actor_make_facing(%10, 2)
+  DOWN_RIGHT    = __actor_make_facing(%00, 3)
 ; DOWN-LEFT       | 11        | 2
-  DOWN_LEFT     = __actor_make_facing(%11, 2)
+  DOWN_LEFT     = __actor_make_facing(%01, 3)
 ; Special facing constant meaning leave current facing alone
   NO_CHANGE     = $ff
 .endenum
@@ -132,8 +132,7 @@ Actor_included = 1
         cmp #ActorFacing::NO_CHANGE
         beq done
         ; first zero out the actor's facing bits
-        lda #ActorRenderFlagMask::facing ; A = The mask of which bits determine facing
-        eor #$ff                   ; Invert it
+        lda #(ActorRenderFlagMask::facing ^ $ff); A = Inverted mask of which bits determine facing
         and ActorOffset::RENDER_FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
                                    ; flags with facing bits zeroed
         ora the_facing             ; OR in desired facing bits
@@ -152,8 +151,7 @@ Actor_included = 1
     ; stash A
     sta local_0
     ; first zero out the actor's facing bits
-    lda #ActorRenderFlagMask::facing ; A = The mask of which bits determine facing
-    eor #$ff                   ; Invert it
+    lda #(ActorRenderFlagMask::facing ^ $ff); A = Inverted mask of which bits determine facing
     and ActorOffset::RENDER_FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
                                ; flags with facing bits zeroed
     ora local_0                ; OR in desired facing bits
@@ -169,21 +167,20 @@ Actor_included = 1
 .endmacro
 
 .macro Actor_set_palette palette_index
-    ; first zero out the actor's facing bits
-    lda #ActorRenderFlagMask::palette ; A = The mask of which bits determine palette
-    eor #$ff                          ; Invert it
+    ; first zero out the actor's palette bits
+    lda #(ActorRenderFlagMask::facing ^ $ff); A = Inverted mask of which bits determine palette
     and ActorOffset::RENDER_FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
                                       ; flags with palette bits zeroed
     ora #(palette_index << 3)         ; OR in desired palette bits
     sta ActorOffset::RENDER_FLAGS, X  ; store back as the actor's new flags
 .endmacro
 
-.macro Actor_draw_actors N, draw_1x1, draw_2x2
+.macro Actor_draw_actors N, oam_offset, draw_1x1, draw_2x2
     ; address of current 4-byte oam buffer entry we are updating
     buffer_entry_ptr = addr_0
-    lda #<PPU::oam_buffer
+    lda #<(PPU::oam_buffer + (oam_offset * 4))
     sta buffer_entry_ptr
-    lda #>PPU::oam_buffer
+    lda #>(PPU::oam_buffer + (oam_offset * 4))
     sta buffer_entry_ptr + 1
     ; inlined loop over all actors
     .repeat N, I

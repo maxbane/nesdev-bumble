@@ -15,6 +15,7 @@
 .include "ai.inc"
 
 .include "math_macros.inc"
+.include "sprites_manifest.inc"
 
 ;
 ; iNES header
@@ -50,15 +51,15 @@ INES_HEADER INES_PRG_BANK_COUNT, INES_CHR_BANK_COUNT, INES_MAPPER, INES_MIRROR, 
 
 .segment "RODATA"
 main_palettes:
-.byte $11,$15,$26,$37 ; bg0 purple/pink
-.byte $11,$09,$19,$29 ; bg1 green
-.byte $11,$01,$11,$21 ; bg2 blue
-.byte $11,$00,$10,$30 ; bg3 greyscale
+.byte $1D,$15,$26,$37 ; bg0 purple/pink
+.byte $1D,$09,$19,$29 ; bg1 green
+.byte $1D,$01,$11,$21 ; bg2 blue
+.byte $1D,$00,$10,$30 ; bg3 greyscale
 
-.byte $11,$08,$37,$20 ; sp0 BEES
-.byte $11,$14,$24,$34 ; sp1 purple
-.byte $11,$1B,$2B,$3B ; sp2 teal
-.byte $11,$12,$22,$32 ; sp3 marine
+.byte $1D,$10,$00,$21 ; sp0 player!
+.byte $1D,$14,$24,$34 ; sp1 purple
+.byte $1D,$1B,$2B,$3B ; sp2 teal
+.byte $1D,$12,$22,$32 ; sp3 marine
 
 
 .segment "ZEROPAGE"
@@ -143,13 +144,15 @@ irq:
 ; main loop for core gameplay
 .proc loop_gameplay
     ; loop forever
-    handle_input_gameplay
-    AI_do_ai Constants::N_ACTORS
     Physics_do_gravity_inline Constants::N_ACTORS, Constants::GRAVITY_DDY
     Physics_move_actors_with_bounce_inline Constants::N_ACTORS, \
                                            Constants::FLOOR_Y, \
                                            Constants::CEILING_Y
+    handle_input_gameplay
+    AI_do_ai Constants::N_ACTORS
+
     Actor_draw_actors Constants::N_ACTORS, \
+                      Constants::N_EFFECTS, \
                       {jsr Actor::draw_1x1_actor_sprite}, \
                       {jsr Actor::draw_2x2_actor_sprites}
     jsr PPU::update
@@ -168,17 +171,18 @@ irq:
     mathmac_set16 #$0000, the_player::velocity::xval, the_player::velocity::yval
     mathmac_set16 #$0000, actor_01::velocity::xval, actor_01::velocity::yval
 
-    lda #$10
+    lda #Sprites::tank
     sta the_player::base_tile
-    lda #$01
+    lda #Sprites::jet
     sta actor_01::base_tile
 
     lda #(ActorRenderFlagMask::is_2x2 | ActorRenderFlagMask::is_active)
     sta the_player::render_flags
     lda #(ActorRenderFlagMask::is_active)
     sta actor_01::render_flags
-    ldx #actor_01::addr
-    Actor_set_palette 2
+
+    ;ldx #actor_01::addr
+    ;Actor_set_palette 2
 
     lda #AI::Routine::PLAYER0_CONTROL
     sta the_player::ai_routine

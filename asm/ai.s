@@ -70,6 +70,7 @@ button_dir_map:
 
     .export PLAYER0_CONTROL = 1
     .proc player0_control
+        ; new buttons (edge)
         lda Joy::new_buttons_0
         ; A button: flap
         and #Joy::BUTTON_A
@@ -78,10 +79,11 @@ button_dir_map:
             rts
         :
 
+        ; current buttons (level)
+        lda Joy::pad_0
         ; Look up the ActorFacing constant that corresponds to the bitmask of
         ; currently depressed directional buttons, and set that as our actor's
         ; facing
-        lda Joy::pad_0
         and #%11110000
         .repeat 4
             lsr ; huh is there a faster way to shift 4 bits right?
@@ -90,11 +92,21 @@ button_dir_map:
         lda button_dir_map, Y
         ; X is still actor::addr
         Actor_set_facing_from_A
+
+        ;; current buttons (level)
+        ;lda Joy::pad_0
+        ;; A button: show flame
+        ;and #Joy::BUTTON_A
+        ;beq :+
+        ;    jsr do_flap_player0
+        ;    rts
+        ;:
+
         rts
     .endproc
 .endscope
 
-; Main routing routine.
+; Main routing routine. 
 .export jump_ai_subroutine
 .proc jump_ai_subroutine
     ; RTS trick
