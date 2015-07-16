@@ -43,7 +43,8 @@ OBJECTS = locals.o main.o ppu.o joy.o actor_routines.o ai.o anim.o
 #
 main.o: 			locals.inc ines.inc ppu.inc joy.inc constants.inc \
 					actor.inc ai.inc actor_routines.inc physics.inc \
-					math_macros.inc chr/sprites.chr sprites_manifest.inc
+					math_macros.inc chr/sprites.chr sprites_manifest.inc \
+					anim.inc
 joy.o: 				locals.inc
 actor_routines.o:	locals.inc constants.inc actor.inc
 ai.o: 				locals.inc joy.inc actor.inc constants.inc math_macros.inc

@@ -13,6 +13,7 @@
 .include "physics.inc"
 .include "actor_routines.inc"
 .include "ai.inc"
+.include "anim.inc"
 
 .include "math_macros.inc"
 .include "sprites_manifest.inc"
@@ -128,8 +129,29 @@ irq:
 
     jsr PPU::clear_background
     jsr init_actors
+    jsr init_effects
+
     jmp loop_gameplay
     ; no rts
+.endproc
+
+.segment "RODATA"
+my_effect_script:
+    ; do nothing then do nothing
+    .byte Anim::Op::nop
+    .byte Anim::Op::clear_active
+    .byte Anim::Op::yield
+.segment "CODE"
+
+.proc init_effects
+    ; no fancy "find free effect" functionality here, just take effect 0
+    lda #<my_effect_script
+    sta Anim::effects_array + Anim::EffectOffset::PC + 0
+    lda #>my_effect_script
+    sta Anim::effects_array + Anim::EffectOffset::PC + 1
+    lda #%10000001
+    sta Anim::effects_array + Anim::EffectOffset::STATE
+    rts
 .endproc
 
 ; Call with A = Joy::new_buttons_?
@@ -155,6 +177,7 @@ irq:
                       Constants::N_EFFECTS, \
                       {jsr Actor::draw_1x1_actor_sprite}, \
                       {jsr Actor::draw_2x2_actor_sprites}
+    jsr Anim::do_frame
     jsr PPU::update
     jmp loop_gameplay
 .endproc

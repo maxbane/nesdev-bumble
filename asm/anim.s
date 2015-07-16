@@ -7,90 +7,108 @@ current_effect_addr = addr_0
 current_pc			= addr_1
 
 .segment "CODE"
-.scope EffectOffset
-	PC = 0				; 2-byte "program counter"
-
-	STATE = 2			; 1-byte state
-						; 765543210
-						; |||||||||
-						; ||+++++++--- oam_entry_index
-						; |+---------- has_yielded
-						; +----------- is_active
-						
-	FRAME_MODULUS = 3	; 1-byte frame divider
-	;;;;;;;;
-	EFFECT_SIZE = 4
-.endscope
-
-.enum EffectStateMask
-	OAM_ENTRY_INDEX = %00111111
-	HAS_YIELDED		= %01000000
-	IS_ACTIVE		= %10000000
-.endenum
-
-.macro incr_pc_by_one num_bytes
-	; assumes PC is at offset 0 within effect structure
-	mathmac_inc16 current_effect_addr
-.endmacro
-
 .macro incr_pc_by num_bytes
 	; assumes PC is at offset 0 within effect structure
-	mathmac_add16 num_bytes, current_effect_addr, current_effect_addr
+	clc 
+	ldy #Anim::EffectOffset::PC
+	lda (current_effect_addr), Y
+	adc num_bytes
+	sta (current_effect_addr), Y
+	bne :+
+		iny
+		lda (current_effect_addr), Y
+		adc num_bytes
+		sta (current_effect_addr), Y
+	:
 .endmacro
 
-; animation opcode ("op") handlers
-.scope AnimOp
-	; NB: op handlers must not clobber X, local_0, or addr_0
-	; When handler is called, current_effect_addr points to current effect,
-	; current_pc contains the current value of the current effect's PC, i.e.,
-	; points to the current opcode
-	.segment "CODE"
-	.proc nop ; XXX would be clever to reuse end of yield
-		incr_pc_by_one
-		rts 
-	.endproc
-
-	.proc yield
-		ldy #EffectOffset::STATE
-		lda (current_effect_addr), Y
-		ora #EffectStateMask::HAS_YIELDED
-		sta (current_effect_addr), Y
-		incr_pc_by_one
-		rts
-	.endproc
-
-	.proc clear_active
-		ldy #EffectOffset::STATE
-		lda (current_effect_addr), Y
-		; XXX stupid ca65: bitwise not fails: #~(EffectStateMask::IS_ACTIVE)
-		and #(EffectStateMask::IS_ACTIVE ^ $ff)
-		sta (current_effect_addr), Y
-		incr_pc_by_one
-		rts
-	.endproc
-.endscope
-
+.segment "CODE"
 ; Animation Engine
 .scope Anim
 	N_EFFECTS = 16 ; must be at least 1 if you plan to call do_frame
 	MAX_INSTRUCTIONS_PER_EFFECT_PER_FRAME = 8
 
+	; would overflow index
+	.assert Anim::N_EFFECTS < 256, error, "N_EFFECTS too large, must be < 256"
+	.assert Anim::N_EFFECTS > 0, error, "N_EFFECTS must be > 0"
+
+	.scope Op
+		; byte values of opcodes are indices into instruction_handler_table
+		.export nop				= $00
+		.export yield			= $01
+		.export clear_active	= $02
+	.endscope
+
+	.scope EffectOffset
+		.export PC = 0		; 2-byte "program counter"
+
+		.export STATE = 2	; 1-byte state
+							; 765543210
+							; |||||||||
+							; ||+++++++--- oam_entry_index
+							; |+---------- has_yielded
+							; +----------- is_active
+							
+		;;;;;;;;
+		.export EFFECT_SIZE = 3
+	.endscope
+
+	.scope EffectStateMask
+		.export OAM_ENTRY_INDEX = %00111111
+		.export HAS_YIELDED		= %01000000
+		.export IS_ACTIVE		= %10000000
+	.endscope
+
 	.segment "RAM"
 	; reserved array of all effect objects
 	effects_array: .res Anim::N_EFFECTS * EffectOffset::EFFECT_SIZE
+	.export effects_array
+
+	.segment "CODE"
+	; animation opcode ("op") handlers
+	.scope AnimOpHandler
+		; NB: op handlers must not clobber X, local_0, or addr_0
+		; When handler is called, current_effect_addr points to current effect,
+		; current_pc contains the current value of the current effect's PC, i.e.,
+		; points to the current opcode
+		.proc nop ; XXX would be clever to reuse end of yield
+			incr_pc_by #1
+			rts 
+		.endproc
+
+		.proc yield
+			ldy #EffectOffset::STATE
+			lda (current_effect_addr), Y
+			ora #EffectStateMask::HAS_YIELDED
+			sta (current_effect_addr), Y
+			incr_pc_by #1
+			rts
+		.endproc
+
+		.proc clear_active
+			ldy #EffectOffset::STATE
+			lda (current_effect_addr), Y
+			; XXX stupid ca65: bitwise not fails: #~(EffectStateMask::IS_ACTIVE)
+			and #(EffectStateMask::IS_ACTIVE ^ $ff)
+			sta (current_effect_addr), Y
+			; leave pc alone
+			;incr_pc_by #1 
+			rts
+		.endproc
+	.endscope
 
 	.segment "RODATA"
 	instruction_handler_table:
 		; opcode = index
-		.word AnimOp::nop - 1			; $00
-		.word AnimOp::yield - 1			; $01
-		.word AnimOp::clear_active - 1	; $02
+		.word AnimOpHandler::nop - 1			; $00
+		.word AnimOpHandler::yield - 1			; $01
+		.word AnimOpHandler::clear_active - 1	; $02
 
 	.segment "CODE"
-	; routing routine for op handlers
+	; routing routine for op handlers. Call with A = index into table = opcode
 	.proc jump_instruction_handler
 		; RTS trick
-		asl
+		asl ; double A cuz each table entry (address) is two bytes long
 		tay
 		lda instruction_handler_table + 1, Y
 		pha
@@ -101,6 +119,7 @@ current_pc			= addr_1
 
 	; main function
 	; clobbers addr_0, addr_1, A, X, Y
+	.export do_frame
 	.proc do_frame
 		; Animation engine: Each frame (sometime between vblanks), for each
 		; active effect:
@@ -164,6 +183,7 @@ current_pc			= addr_1
 				lda (current_effect_addr), Y
 				and #EffectStateMask::HAS_YIELDED
 				beq each_instruction
+				; note that we don't check is_active. script must yield after clear_active
 			finish_effect:
 				; restore X
 				pla
@@ -177,7 +197,7 @@ current_pc			= addr_1
 
 		frame_done:
 		rts
-	.endproc
+	.endproc ; do_frame
 
 .endscope
 

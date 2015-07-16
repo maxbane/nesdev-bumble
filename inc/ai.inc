@@ -14,6 +14,7 @@ AI_included = 1
     ; constants
     ; AI routine indices
     .scope Routine
+		; zp so ca65 knows they have byte range
         .importzp NO_BRAIN
         .importzp PLAYER0_CONTROL
     .endscope
