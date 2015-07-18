@@ -140,6 +140,9 @@ scroll_y:       .res 1
 scroll_nmt:     .res 1 
 .exportzp scroll_nmt
 
+; ppumask buffer
+mask:           .res 1
+
 _temp:           .res 1 ; temporary variable
 
 
@@ -207,7 +210,7 @@ nmi_buffered:
     :
     cmp #2 ; nmi_ready == 2 turns rendering off
     bne :+
-        lda #%00000000
+        lda mask
         sta REG_MASK
         ldx #0
         stx nmi_ready

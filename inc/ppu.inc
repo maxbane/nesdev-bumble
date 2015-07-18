@@ -25,6 +25,7 @@ PPU_included = 1
     .importzp nmt_buffer_len
     .importzp scroll_x, scroll_y
     .importzp scroll_nmt
+	.importzp mask
 
     ; PPU Routines
     .import reset
