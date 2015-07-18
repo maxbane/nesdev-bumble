@@ -260,6 +260,7 @@ nmi_buffered:
     lda scroll_y
     sta REG_SCROLL
     ; enable rendering
+    ; TODO: get this from a variable the user can set
     lda #%00011110
     sta REG_MASK
     ; flag PPU update complete

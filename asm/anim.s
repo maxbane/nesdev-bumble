@@ -1,5 +1,6 @@
 .include "locals.inc"
 .include "math_macros.inc"
+.include "ppu.inc"
 
 .segment "ZEROPAGE"
 ; currently updating effect. op handlers must not clobber
@@ -34,9 +35,12 @@ current_pc			= addr_1
 
 	.scope Op
 		; byte values of opcodes are indices into instruction_handler_table
-		.export nop				= $00
-		.export yield			= $01
-		.export clear_active	= $02
+		.export nop						= $00
+		.export yield					= $01
+		.export clear_active			= $02
+		.export clear_active_and_yield	= $03
+		.export jmp_rel					= $04
+		.export ppumask_set				= $05
 	.endscope
 
 	.scope EffectOffset
@@ -70,12 +74,14 @@ current_pc			= addr_1
 		; NB: op handlers must not clobber X, local_0, or addr_0
 		; When handler is called, current_effect_addr points to current effect,
 		; current_pc contains the current value of the current effect's PC, i.e.,
-		; points to the current opcode
+		; points to the current opcode. handlers may clobber current_pc.
+		; Handler guaranteed to be called with Y=2
 		.proc nop ; XXX would be clever to reuse end of yield
 			incr_pc_by #1
 			rts 
 		.endproc
 
+		; stop executing effect this frame, continue at next instruction next frame
 		.proc yield
 			ldy #EffectOffset::STATE
 			lda (current_effect_addr), Y
@@ -85,6 +91,9 @@ current_pc			= addr_1
 			rts
 		.endproc
 
+		; mark the currently executing effect as no longer active.
+		; NOTE -- has no effect until next frame comes around; user must follow
+		; clear_active with yield to actually stop executing in this frame
 		.proc clear_active
 			ldy #EffectOffset::STATE
 			lda (current_effect_addr), Y
@@ -92,7 +101,39 @@ current_pc			= addr_1
 			and #(EffectStateMask::IS_ACTIVE ^ $ff)
 			sta (current_effect_addr), Y
 			; leave pc alone
-			;incr_pc_by #1 
+			rts
+		.endproc
+
+		; more efficient than adjacent clear_active and yield instructions
+		.proc clear_active_and_yield
+			ldy #EffectOffset::STATE
+			lda (current_effect_addr), Y
+			; XXX stupid ca65: bitwise not fails: #~(EffectStateMask::IS_ACTIVE)
+			and #(EffectStateMask::IS_ACTIVE ^ $ff)
+			ora #(EffectStateMask::HAS_YIELDED)
+			sta (current_effect_addr), Y
+			; leave pc alone
+			rts
+		.endproc
+
+		; relative jmp. takes a one-byte arg to add to the effect PC
+		.proc jmp_rel
+			; current_pc points to current executing opcode
+			; point it to the next byte, our arg
+			mathmac_inc16 current_pc 
+			; relies on EffectOffset::PC = 0
+			incr_pc_by {(current_pc), Y}
+			rts
+		.endproc
+
+		.proc ppumask_set
+			; advance to arg
+			mathmac_inc16 current_pc 
+			lda (current_pc), Y ; Y=0
+			; TODO: nmi handler needs to let us control ppumask
+			;ora PPU::REG_MASK
+			;sta PPU::REG_MASK
+			incr_pc_by #2
 			rts
 		.endproc
 	.endscope
@@ -100,9 +141,12 @@ current_pc			= addr_1
 	.segment "RODATA"
 	instruction_handler_table:
 		; opcode = index
-		.word AnimOpHandler::nop - 1			; $00
-		.word AnimOpHandler::yield - 1			; $01
-		.word AnimOpHandler::clear_active - 1	; $02
+		.word AnimOpHandler::nop - 1					; $00
+		.word AnimOpHandler::yield - 1					; $01
+		.word AnimOpHandler::clear_active - 1			; $02
+		.word AnimOpHandler::clear_active_and_yield - 1	; $03
+		.word AnimOpHandler::jmp_rel - 1				; $04
+		.word AnimOpHandler::ppumask_set - 1			; $05
 
 	.segment "CODE"
 	; routing routine for op handlers. Call with A = index into table = opcode

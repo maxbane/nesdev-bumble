@@ -48,7 +48,7 @@ main.o: 			locals.inc ines.inc ppu.inc joy.inc constants.inc \
 joy.o: 				locals.inc
 actor_routines.o:	locals.inc constants.inc actor.inc
 ai.o: 				locals.inc joy.inc actor.inc constants.inc math_macros.inc
-anim.o:				locals.inc math_macros.inc
+anim.o:				locals.inc math_macros.inc ppu.inc
 
 # Emulator locations
 NESTOPIADIR 	= ../../emu/nestopia-1.46.2

@@ -136,21 +136,45 @@ irq:
 .endproc
 
 .segment "RODATA"
-my_effect_script:
-    ; do nothing then do nothing
+my_effect_script1:
+    ; do nothing then quit
     .byte Anim::Op::nop
-    .byte Anim::Op::clear_active
+    .byte Anim::Op::clear_active_and_yield
+
+my_effect_script2:
+    ; loopity
+    .byte Anim::Op::nop
     .byte Anim::Op::yield
+    .byte Anim::Op::jmp_rel, 254 ; -2 two's complement
+
+my_effect_script3:
+    .byte Anim::Op::ppumask_set, %10000000
+    .byte Anim::Op::clear_active_and_yield
+
 .segment "CODE"
 
 .proc init_effects
     ; no fancy "find free effect" functionality here, just take effect 0
-    lda #<my_effect_script
+    lda #<my_effect_script1
     sta Anim::effects_array + Anim::EffectOffset::PC + 0
-    lda #>my_effect_script
+    lda #>my_effect_script1
     sta Anim::effects_array + Anim::EffectOffset::PC + 1
     lda #%10000001
     sta Anim::effects_array + Anim::EffectOffset::STATE
+    ; ... and effect 1
+    lda #<my_effect_script2
+    sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 0
+    lda #>my_effect_script2
+    sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 1
+    lda #%10000010
+    sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::STATE
+    ; ... and effect 2
+    lda #<my_effect_script3
+    sta Anim::effects_array + 2*Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 0
+    lda #>my_effect_script3
+    sta Anim::effects_array + 2*Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 1
+    lda #%10000011
+    sta Anim::effects_array + 2*Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::STATE
     rts
 .endproc
 

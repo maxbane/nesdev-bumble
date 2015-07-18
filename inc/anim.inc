@@ -34,6 +34,9 @@ Anim_included = 1
 		.importzp nop
 		.importzp yield
 		.importzp clear_active
+		.importzp clear_active_and_yield
+		.importzp jmp_rel
+		.importzp ppumask_set
 	.endscope
 .endscope
 
