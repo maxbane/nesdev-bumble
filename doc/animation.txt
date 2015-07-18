@@ -1,0 +1,63 @@
+Some number of "effects" currently active. Each effect "scripted" in a simple
+bytecode DSL, scripts usually being stored in RODATA.
+
+Each effect has 4 bytes of state (thus up to 64 effects per page of RAM):
+	* pc - program counter
+		2-byte address
+		points to next bytecode instruction to evaluate
+	* state
+		1 byte
+		765543210
+	    |||||||||
+	    ||+++++++--- oam_entry_index
+		|+---------- has_yielded
+		+----------- is_active
+	* frame_modulus
+		1 byte
+		determines number of vblanks between instruction evaluations
+
+Effect instructions, implemented by RTS jump table:
+
+	* Flow/timing control:
+		* jmp_absolute <addrL> <addrH>
+		* clear_active
+		* set_frame_modulus <byte>
+		* yield
+		* (Above is enough for unconditional sequences and loops.)
+		* (Conditional and randomized behaviors need more state.)
+		* (yield_n - needs reg)
+
+	* Sprite manipulation
+		* set_oam_x <byte>
+		* set_oam_y <byte>
+		* set_oam_tile_num <byte>
+		* set_oam_palette_num <2 bits>
+		* set_oam_orientation <2 bits>
+		* incr_oam_entry_index
+		* decr_oam_entry_index
+		* set_palette_values <2 bits> <4 bytes>
+
+	* Nametable manipulation
+	* PPU control
+		* ppuctrl_or_with <byte>
+		* ppuctrl_and_with <byte>
+		* ppumask_or_with <byte>
+		* ppumask_and_with <byte>
+		* set/add to ppu scroll, etc.
+
+Usage:
+	1. User finds an inactive effect. If none is avail., user aborts.
+	2. User points effect's pc at desired script, arranges initial state of
+	effect. User is careful to give an oam_entry_index that won't be clobbered
+	by something else (unless user intentionally wants to do something fancy).
+	3. User sets is_active bit on effect. Next frame, evaluation of script will
+	begin.
+
+Animation engine: Each frame (sometime between vblanks), for each active effect:
+	* Clear has_yielded
+	* While !has_yielded && n_instructions_executed < MAX
+		* Animation engine fetches instruction from pc. RTSes to handler routine via jump table.
+		* Each instruction has a handler routine; handler routines are responsible
+		  for advancing/setting pc for next frame. Handler for yield
+		  instruction sets has_yielded.
+

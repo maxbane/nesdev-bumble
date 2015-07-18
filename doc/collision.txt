@@ -1,0 +1,88 @@
+
+Narrow-phase collision
+----------------------
+
+Each actor is an axis-aligned square, 1x1 tile or 2x2 tiles, and each
+background collision box is an axis-aligned rectangle of arbitrary size.
+We only need to check collision between pairs of actors and between actors and
+background collision boxes, not between pairs of background collision boxes.
+
+We should only check distinct pairs (triangular number).
+
+Assume origin at top-left corner of screen, Y increases downward.
+
+For each pair of AABBs identified for collision check, we have upper-left
+coords UL and bottom-right coords BR. Collision iff:
+    UL(a)[x] < BR(b)[x] && UL(a)[y] < BR(b)[y] &&
+    BR(a)[x] > UL(a)[x] && BR(a)[y] > UL(b)[y]
+
+Spatial hashmap-based broad phase collision
+-------------------------------------------
+
+Fix constant CELL_SIZE. Ideally it should evenly divide the screen space into
+squares.
+
+Screen: 256 x 240
+Quadrants: 128 x 120
+Hexadecants: 64 x 60
+
+Assuming square cells, could choose CELL_SIZE=64, and tolerate the bottom row
+of cells being "cut off" or only 44px in vertical extent before hitting the
+screen edge. Shouldn't affect the math of the hash function.
+
+Hash function: Given an AABB, return the one or more cells that it intersects.
+
+Each cell is identified by its own coords in inter-cell space, C_X = 0, ..., 15
+and C_Y = 0, ..., 15.
+
+Cell of upper left corner of AABB B:
+    C_X = UL(B)[x] >> 6 ; divide by 64, i.e., the top 2 bits of UL(B)[x]
+        = rol(rol(rol(UL(B)[x] & #%11000000)))
+            i.e.,
+            lda UL(B)[x] / and #%11000000 / clc / rol / rol / rol
+    C_Y = ditto for UL(B)[y]
+
+Cells are laid out in memory as a matrix, say row-major. 
+    Address_of_cell(C_X, C_Y) = 
+        C_Y * CELLS_PER_ROW * SIZEOF(CELL_DATA) + C_X * SIZEOF(CELL_DATA)
+        (hopefully can keep everything powers of two for shiftiplication)
+
+Determine C_X(UL(B)), C_Y(UL(B)) cell of UL(B) and C_X(BR(B)), C_Y(BR(B)) cell
+of BR(B). If the corners are in different cells, then the AABB is also in every
+cell in between the corners' cells.
+    Cross product {C_X(UL(B)), ..., C_X(BR(B))} x {C_Y(UL(B)), ..., C_Y(BR(B))}
+So it can be expensive to insert big AABBs -- maybe okay for stationary
+bacground AABBs that only need to be inserted once and never move.
+
+Each cell contains a list of the AABBs that belong to it. Could be a linked
+list, which is space efficient, SIZEOF(CELL_DATA) = a pointer, but more
+complicated to maintain (how to allocated and reclaim memory for nodes? need a
+malloc). Could be a fixed-sized array, space inefficient but simple and
+probably faster. Means we have a maximum number of AABBs per cell, though.
+
+Collision detection: for each cell, for each actor whose AABB intersects that
+cell, check collision between its AABB and each other actor AABB or background
+AABB also in the cell. (But only check a given distinct pair of actors once.)
+Maybe actually put for each actor on the outer side of the loop.
+
+Each frame:
+    Each actor:
+        Remove actor from its cells
+        Move actor
+        Add actor to its new cells
+    Do collision detection
+
+Maybe more efficient:
+Each frame:
+    Each actor:
+        If (actor.dx > 0 && BR(actor)[x] + dx > CELL_SIZE * (C_X(BR(actor)) + 1)) ||
+           (actor.dx < 0 && UL(actor)[x] + dx < CELL_SIZE * C_X(UL(actor))) ||
+           (actor.dy > 0 && BR(actor)[y] + dy > CELL_SIZE * (C_Y(BR(actor)) + 1)) ||
+           (actor.dy < 0 && UL(actor)[u] + dy < CELL_SIZE * C_Y(UL(actor)))
+           {
+                remove actor from its cells
+                move actor
+                add actor to its new cells
+           }
+        else move actor
+    Do collision detection

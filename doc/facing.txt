@@ -1,0 +1,56 @@
+OAM
+---
+76543210
+||
+|+- Flip horizontally
++-- Flip vertically
+
+Actor facing    | OAM.76    | Tile offset (times actor size, 1 or 2)
+----------------+-----------+------------
+RIGHT           | 00        | 0
+LEFT            | 01        | 0
+UP              | 00        | 1
+DOWN            | 10        | 1
+UP-RIGHT        | 00        | 2
+UP-LEFT         | 01        | 2
+DOWN-RIGHT      | 10        | 2
+DOWN-LEFT       | 11        | 2
+
+2x2 quadrants
+-------------
+
+ 3 | 0  Each quadrant corresponds an entry in the oam buffer.
+ --+--  Quadrant index is entry offset in oam buffer.
+ 2 | 1
+
+ Quadrant   | Tile offset (absolute in pattern table)
+ -----------+----------------------------------------
+            | When OAM.76 = %00
+ -----------+----------------------------------------
+ 3          | 0
+ 0          | 1  (one to the right of actor's base tile)
+ 2          | 16 (next row)
+ 1          | 17 (next row and one to the right)
+ -----------+----------------------------------------
+            | When OAM.76 = %01 (horiz. flip)
+ -----------+----------------------------------------
+ 3          | 1
+ 0          | 0  
+ 2          | 17 
+ 1          | 16 
+ -----------+----------------------------------------
+            | When OAM.76 = %10 (vert. flip)
+ -----------+----------------------------------------
+ 3          | 16
+ 0          | 17
+ 2          | 0
+ 1          | 1
+ -----------+----------------------------------------
+            | When OAM.76 = %11 (horiz. + vert. flip)
+ -----------+----------------------------------------
+ 3          | 17
+ 0          | 16
+ 2          | 1
+ 1          | 0
+
+
