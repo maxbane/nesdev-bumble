@@ -21,7 +21,6 @@ Effect instructions, implemented by RTS jump table:
 	* Flow/timing control:
 		* jmp_absolute <addrL> <addrH>
 		* clear_active
-		* set_frame_modulus <byte>
 		* yield
 		* (Above is enough for unconditional sequences and loops.)
 		* (Conditional and randomized behaviors need more state.)

@@ -142,6 +142,7 @@ scroll_nmt:     .res 1
 
 ; ppumask buffer
 mask:           .res 1
+.exportzp mask
 
 _temp:           .res 1 ; temporary variable
 
@@ -210,7 +211,7 @@ nmi_buffered:
     :
     cmp #2 ; nmi_ready == 2 turns rendering off
     bne :+
-        lda mask
+        lda #%00000000
         sta REG_MASK
         ldx #0
         stx nmi_ready
@@ -264,7 +265,8 @@ nmi_buffered:
     sta REG_SCROLL
     ; enable rendering
     ; TODO: get this from a variable the user can set
-    lda #%00011110
+    ;lda #%00011110
+    lda mask
     sta REG_MASK
     ; flag PPU update complete
     ldx #0

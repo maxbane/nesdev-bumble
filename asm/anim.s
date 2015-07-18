@@ -5,6 +5,7 @@
 .segment "ZEROPAGE"
 ; currently updating effect. op handlers must not clobber
 current_effect_addr = addr_0
+; address of current executing opcode. op handlers can clobber to read args
 current_pc			= addr_1
 
 .segment "CODE"
@@ -121,18 +122,16 @@ current_pc			= addr_1
 			; current_pc points to current executing opcode
 			; point it to the next byte, our arg
 			mathmac_inc16 current_pc 
-			; relies on EffectOffset::PC = 0
+			; relies on fact that incr_pc_by will set Y = EffectOffset::PC = 0
 			incr_pc_by {(current_pc), Y}
 			rts
 		.endproc
 
 		.proc ppumask_set
-			; advance to arg
-			mathmac_inc16 current_pc 
-			lda (current_pc), Y ; Y=0
-			; TODO: nmi handler needs to let us control ppumask
-			;ora PPU::REG_MASK
-			;sta PPU::REG_MASK
+			; new ppu mask is in arg
+			ldy #1
+			lda (current_pc), Y 
+			sta PPU::mask
 			incr_pc_by #2
 			rts
 		.endproc
@@ -140,7 +139,7 @@ current_pc			= addr_1
 
 	.segment "RODATA"
 	instruction_handler_table:
-		; opcode = index
+														; opcode/index
 		.word AnimOpHandler::nop - 1					; $00
 		.word AnimOpHandler::yield - 1					; $01
 		.word AnimOpHandler::clear_active - 1			; $02
@@ -150,6 +149,7 @@ current_pc			= addr_1
 
 	.segment "CODE"
 	; routing routine for op handlers. Call with A = index into table = opcode
+	; clobbers Y :(
 	.proc jump_instruction_handler
 		; RTS trick
 		asl ; double A cuz each table entry (address) is two bytes long
@@ -185,7 +185,7 @@ current_pc			= addr_1
 
 		; throughout this loop, X will be N_EFFECTS minus the index in the
 		; array of the current effect; thus we assume that the array is no more
-		; than 256 effects long
+		; than 255 effects long
 		ldx #Anim::N_EFFECTS
 		each_effect:
 			; check if active
@@ -204,13 +204,16 @@ current_pc			= addr_1
 			pha
 			; we now use X to count how many instructions we execute
 			ldx #Anim::MAX_INSTRUCTIONS_PER_EFFECT_PER_FRAME
-			; do while !has_yielded && X > 0
-			;  fetch pc and rts
+			; do
+			;  current_pc[0,1] = current_effect_addr[0,1]
+			;  opcode = *current_pc
+			;  handle(opcode)
+			; while !has_yielded && X > 0
 			each_instruction:
-				ldy #EffectOffset::PC
+				ldy #EffectOffset::PC ; Y = 0
 				lda (current_effect_addr), Y ; A = low byte of PC
 				sta current_pc + 0
-				iny
+				iny ; Y = 1
 				lda (current_effect_addr), Y ; A = high byte of PC
 				sta current_pc + 1
 				; current_pc is now a zeropage pointer to the next opcode to execute

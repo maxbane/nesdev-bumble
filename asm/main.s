@@ -131,6 +131,8 @@ irq:
     jsr init_actors
     jsr init_effects
 
+    lda #%00011110
+    sta PPU::mask
     jmp loop_gameplay
     ; no rts
 .endproc
@@ -148,8 +150,43 @@ my_effect_script2:
     .byte Anim::Op::jmp_rel, 254 ; -2 two's complement
 
 my_effect_script3:
-    .byte Anim::Op::ppumask_set, %10000000
-    .byte Anim::Op::clear_active_and_yield
+    .byte Anim::Op::ppumask_set, %00011110
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::ppumask_set, %00111110
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+    .byte Anim::Op::yield
+
+    .byte Anim::Op::jmp_rel, (256-36)
+    ;.byte Anim::Op::clear_active_and_yield
 
 .segment "CODE"
 
