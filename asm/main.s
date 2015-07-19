@@ -144,49 +144,27 @@ my_effect_script1:
     .byte Anim::Op::clear_active_and_yield
 
 my_effect_script2:
-    ; loopity
+    :
     .byte Anim::Op::nop
     .byte Anim::Op::yield
-    .byte Anim::Op::jmp_rel, 254 ; -2 two's complement
+    .byte Anim::Op::jmp_abs, <:-, >:- 
 
 my_effect_script3:
-    .byte Anim::Op::ppumask_set, %00011110
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::ppumask_set, %00111110
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-    .byte Anim::Op::yield
-
-    .byte Anim::Op::jmp_rel, (256-36)
-    ;.byte Anim::Op::clear_active_and_yield
+    ; clear emphasis bits
+    .byte Anim::Op::ppumask_and_with, %00011111
+    Anim_Op_yield_n 8   ; wait 8 frames
+    ; emphasize red
+    .byte Anim::Op::ppumask_or_with, %00100000
+    Anim_Op_yield_n 8
+    ; emphasize green
+    .byte Anim::Op::ppumask_and_with, %00011111
+    .byte Anim::Op::ppumask_or_with, %01000000
+    Anim_Op_yield_n 8
+    ; emphasize blue
+    .byte Anim::Op::ppumask_and_with, %00011111
+    .byte Anim::Op::ppumask_or_with, %10000000
+    Anim_Op_yield_n 8
+    Anim_Op_jmp_abs my_effect_script3
 
 .segment "CODE"
 
@@ -205,13 +183,9 @@ my_effect_script3:
     sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 1
     lda #%10000010
     sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::STATE
-    ; ... and effect 2
-    lda #<my_effect_script3
-    sta Anim::effects_array + 2*Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 0
-    lda #>my_effect_script3
-    sta Anim::effects_array + 2*Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 1
-    lda #%10000011
-    sta Anim::effects_array + 2*Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::STATE
+
+    ; now use the fanciness
+    Anim_create_effect my_effect_script3, 1, 3 ; active 1, oam_index 3
     rts
 .endproc
 

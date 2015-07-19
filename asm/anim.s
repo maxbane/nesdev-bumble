@@ -1,6 +1,7 @@
 .include "locals.inc"
 .include "math_macros.inc"
 .include "ppu.inc"
+.linecont +
 
 .segment "ZEROPAGE"
 ; currently updating effect. op handlers must not clobber
@@ -14,12 +15,13 @@ current_pc			= addr_1
 	clc 
 	ldy #Anim::EffectOffset::PC
 	lda (current_effect_addr), Y
-	adc num_bytes
+	adc #<num_bytes
 	sta (current_effect_addr), Y
+	; FIXME: broken when carrying to high byte
 	bne :+
 		iny
 		lda (current_effect_addr), Y
-		adc num_bytes
+		adc #>num_bytes
 		sta (current_effect_addr), Y
 	:
 .endmacro
@@ -34,16 +36,6 @@ current_pc			= addr_1
 	.assert Anim::N_EFFECTS < 256, error, "N_EFFECTS too large, must be < 256"
 	.assert Anim::N_EFFECTS > 0, error, "N_EFFECTS must be > 0"
 
-	.scope Op
-		; byte values of opcodes are indices into instruction_handler_table
-		.export nop						= $00
-		.export yield					= $01
-		.export clear_active			= $02
-		.export clear_active_and_yield	= $03
-		.export jmp_rel					= $04
-		.export ppumask_set				= $05
-	.endscope
-
 	.scope EffectOffset
 		.export PC = 0		; 2-byte "program counter"
 
@@ -54,8 +46,12 @@ current_pc			= addr_1
 							; |+---------- has_yielded
 							; +----------- is_active
 							
+		; something like a register/accumulator per effect.
+		.export REG = 3
+		; todo: also, interpreter can keep a transient flags register per effect per
+		; frame, reset between each effect, for holding comparison results etc
 		;;;;;;;;
-		.export EFFECT_SIZE = 3
+		.export EFFECT_SIZE = 4
 	.endscope
 
 	.scope EffectStateMask
@@ -68,6 +64,8 @@ current_pc			= addr_1
 	; reserved array of all effect objects
 	effects_array: .res Anim::N_EFFECTS * EffectOffset::EFFECT_SIZE
 	.export effects_array
+	.out    .sprintf("INFO: Reserved %d RAM bytes for %d effects.", \
+				Anim::N_EFFECTS * EffectOffset::EFFECT_SIZE, Anim::N_EFFECTS)
 
 	.segment "CODE"
 	; animation opcode ("op") handlers
@@ -77,8 +75,9 @@ current_pc			= addr_1
 		; current_pc contains the current value of the current effect's PC, i.e.,
 		; points to the current opcode. handlers may clobber current_pc.
 		; Handler guaranteed to be called with Y=2
+
 		.proc nop ; XXX would be clever to reuse end of yield
-			incr_pc_by #1
+			incr_pc_by 1
 			rts 
 		.endproc
 
@@ -88,7 +87,7 @@ current_pc			= addr_1
 			lda (current_effect_addr), Y
 			ora #EffectStateMask::HAS_YIELDED
 			sta (current_effect_addr), Y
-			incr_pc_by #1
+			incr_pc_by 1
 			rts
 		.endproc
 
@@ -117,13 +116,17 @@ current_pc			= addr_1
 			rts
 		.endproc
 
-		; relative jmp. takes a one-byte arg to add to the effect PC
-		.proc jmp_rel
-			; current_pc points to current executing opcode
-			; point it to the next byte, our arg
+		; 2-byte arg destination address little endian
+		.proc jmp_abs 
+			debugggg:
 			mathmac_inc16 current_pc 
-			; relies on fact that incr_pc_by will set Y = EffectOffset::PC = 0
-			incr_pc_by {(current_pc), Y}
+			ldy #0
+			lda (current_pc), Y
+			; assume PC is at offset zero in effect structure
+			sta (current_effect_addr), Y
+			iny
+			lda (current_pc), Y
+			sta (current_effect_addr), Y
 			rts
 		.endproc
 
@@ -132,20 +135,73 @@ current_pc			= addr_1
 			ldy #1
 			lda (current_pc), Y 
 			sta PPU::mask
-			incr_pc_by #2
+			incr_pc_by 2
+			rts
+		.endproc
+
+		.proc ppumask_or_with
+			; operand is in arg
+			ldy #1
+			lda (current_pc), Y 
+			ora PPU::mask
+			sta PPU::mask
+			incr_pc_by 2
+			rts
+		.endproc
+
+		.proc ppumask_and_with
+			; operand is in arg
+			ldy #1
+			lda (current_pc), Y 
+			and PPU::mask
+			sta PPU::mask
+			incr_pc_by 2
+			rts
+		.endproc
+
+		.proc set_reg
+			; value is arg
+			ldy #1
+			lda (current_pc), Y
+			ldy #EffectOffset::REG
+			sta (current_effect_addr), Y
+			incr_pc_by 2
+			rts
+		.endproc
+
+		.proc inc_reg
+			ldy #EffectOffset::REG
+			lda (current_effect_addr), Y
+			clc
+			adc #1
+			sta (current_effect_addr), Y
+			incr_pc_by 1
 			rts
 		.endproc
 	.endscope
 
+	.scope Op
+		; byte values of opcodes are indices into instruction_handler_table
+		.export nop						= $00
+		.export yield					= $01
+		.export clear_active			= $02
+		.export clear_active_and_yield	= $03
+		.export ppumask_set				= $04
+		.export ppumask_or_with			= $05
+		.export ppumask_and_with		= $06
+		.export jmp_abs					= $07
+	.endscope
+
 	.segment "RODATA"
-	instruction_handler_table:
-														; opcode/index
-		.word AnimOpHandler::nop - 1					; $00
-		.word AnimOpHandler::yield - 1					; $01
-		.word AnimOpHandler::clear_active - 1			; $02
-		.word AnimOpHandler::clear_active_and_yield - 1	; $03
-		.word AnimOpHandler::jmp_rel - 1				; $04
-		.word AnimOpHandler::ppumask_set - 1			; $05
+	instruction_handler_table:							; opcode/index
+		.addr AnimOpHandler::nop - 1					; $00
+		.addr AnimOpHandler::yield - 1					; $01
+		.addr AnimOpHandler::clear_active - 1			; $02
+		.addr AnimOpHandler::clear_active_and_yield - 1	; $03
+		.addr AnimOpHandler::ppumask_set - 1			; $04
+		.addr AnimOpHandler::ppumask_or_with - 1		; $05
+		.addr AnimOpHandler::ppumask_and_with - 1		; $06
+		.addr AnimOpHandler::jmp_abs - 1				; $07
 
 	.segment "CODE"
 	; routing routine for op handlers. Call with A = index into table = opcode
@@ -245,6 +301,66 @@ current_pc			= addr_1
 		frame_done:
 		rts
 	.endproc ; do_frame
+
+	; call with:
+	;	X = <script address
+	;	Y = >script address
+	;	A = state
+	; returns with A = effect index, or 255 if no effect was available
+	; clobbers addr_0, addr_1, X, Y
+	.export create_effect
+	.proc create_effect
+		script_addr = addr_1
+		pha	; stash A. we must be sure to pop it before rts!
+		stx script_addr
+		sty script_addr + 1
+		lda #<Anim::effects_array
+		sta current_effect_addr + 0
+		lda #>Anim::effects_array
+		sta current_effect_addr + 1
+
+		ldx #Anim::N_EFFECTS
+		each_effect:
+			; check if active
+			ldy #EffectOffset::STATE
+			lda (current_effect_addr), Y
+			and #EffectStateMask::IS_ACTIVE
+			beq is_inactive
+			dex
+			beq no_free_effects
+			; increment pointer to current effect by size of effect
+			mathmac_add16 #EffectOffset::EFFECT_SIZE, current_effect_addr, current_effect_addr
+			jmp each_effect
+
+		is_inactive:
+			; found a free effect, pointed to by current_effect_addr
+			; set effect's PC to script addr
+			lda script_addr
+			ldy #EffectOffset::PC
+			sta (current_effect_addr), Y
+			lda script_addr + 1
+			iny 
+			sta (current_effect_addr), Y
+			; set state
+			pla 
+			ldy #EffectOffset::STATE
+			sta (current_effect_addr), Y
+			; return effect index = N_EFFECTS - X
+			lda #Anim::N_EFFECTS
+			; use first byte of script_addr (since we don't need it anymore) as
+			; tmp store for X
+			stx script_addr
+			sec
+			sbc script_addr
+			; ignore overflowwwwwwwwww
+			; A now equals index of new effect
+			rts
+
+		no_free_effects:
+			pla
+			lda #255 ; error indicator
+			rts
+	.endproc ; create_effect
 
 .endscope
 
