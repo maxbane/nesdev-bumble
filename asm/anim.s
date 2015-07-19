@@ -1,6 +1,7 @@
 .include "locals.inc"
 .include "math_macros.inc"
 .include "ppu.inc"
+.include "coroutine.inc"
 .linecont +
 
 .segment "ZEROPAGE"
@@ -178,6 +179,10 @@ current_pc			= addr_1
 			incr_pc_by 1
 			rts
 		.endproc
+
+		.proc jsr
+			rts
+		.endproc
 	.endscope
 
 	.scope Op
@@ -190,6 +195,7 @@ current_pc			= addr_1
 		.export ppumask_or_with			= $05
 		.export ppumask_and_with		= $06
 		.export jmp_abs					= $07
+		.export jsr						= $08
 	.endscope
 
 	.segment "RODATA"
@@ -202,6 +208,7 @@ current_pc			= addr_1
 		.addr AnimOpHandler::ppumask_or_with - 1		; $05
 		.addr AnimOpHandler::ppumask_and_with - 1		; $06
 		.addr AnimOpHandler::jmp_abs - 1				; $07
+		.addr AnimOpHandler::jsr - 1					; $08
 
 	.segment "CODE"
 	; routing routine for op handlers. Call with A = index into table = opcode
