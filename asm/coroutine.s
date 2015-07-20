@@ -61,6 +61,7 @@ Coroutine::yield = yield
 	; off we go. note because we have popped our caller's return address,
 	; we are actually returning to our caller's caller. (or to whomever the
 	; caller arranged for us to yield to.)
+	lda #0
 	rts
 .endproc
 
@@ -108,6 +109,7 @@ Coroutine::new = new
 		iny
 		sta (Coroutine::self), Y
 		jsr clear_state
+		lda #0 ; success
 		rts
 
 		increment_self:
@@ -116,6 +118,7 @@ Coroutine::new = new
 
 	end_of_list:
 		mathmac_clr16 Coroutine::self ; set Coroutine::self=$0000 to indicate failure
+		lda #1 ; error indicator
 		rts
 .endproc
 
@@ -128,18 +131,22 @@ Coroutine::halt = halt
 	sta (Coroutine::self), Y
 	iny
 	sta (Coroutine::self), Y
+	lda #1
 	rts
 .endproc
+
+; so deep, man
+Coroutine::free = halt
 
 ; next: jsr with Coroutine::self = coroutine
 Coroutine::next = next
 .proc next
 	; first make sure PROG != $0000 (halted)
-	;ldx #0
-	;lda Coroutine::self, X
+	;ldy #0
+	;lda (Coroutine::self), Y
 	;bne :+
-	;	inx
-	;	lda Coroutine::self, X
+	;	iny
+	;	lda (Coroutine::self), Y
 	;	bne :+
 	;	rts
 	;:	; PROG != $0000
@@ -175,6 +182,37 @@ Coroutine::next = next
 	pla ; set A
 	plp ; set status
 	rts ; jmp to PROG address+1
-	;jmp (Coroutine::self) ; rts happens when coroutine yields or halts
+.endproc
+
+Coroutine::next_all = next_all
+.proc next_all
+	; make sure PROG != $0000 (halted)
+	ldy #Coroutine::State::PROG
+	lda (Coroutine::self), Y
+	bne :+
+		iny
+		lda (Coroutine::self), Y
+		beq advance_self ; PROG == $0000 
+	:
+	; PROG != $0000
+	; make sure PROG != $ffff
+	ldy #Coroutine::State::PROG
+	lda (Coroutine::self), Y
+	cmp #$ff
+	bne :+
+		iny
+		lda (Coroutine::self), Y
+		cmp #$ff
+		bne :+
+		; PROG == $FFFF, end of array
+		rts
+	:
+	; PROG != $FFFF
+	; step it
+	jsr Coroutine::next
+	; advance to next coroutine
+	advance_self:
+	mathmac_add16 #.sizeof(Coroutine::State), Coroutine::self, Coroutine::self
+	jmp next_all
 .endproc
 

@@ -1,5 +1,6 @@
 
 .include "coroutine.inc"
+.include "math_macros.inc"
 
 N_COROUTINES = 3
 
@@ -8,59 +9,84 @@ my_coroutines: .res .sizeof(Coroutine::State)*N_COROUTINES + 2
 my_coroutines_guard = my_coroutines + .sizeof(Coroutine::State)*N_COROUTINES
 
 .segment "CODE"
-.global test_coroutines
-.proc test_coroutines
+
+.proc ensure_guard
 	; set guard on my_coroutines list (end-of-list marker)
 	lda #$ff
 	sta my_coroutines_guard
 	sta my_coroutines_guard + 1
+	rts
+.endproc
 
-	; point Coroutine::self to the head of our array
-	lda #<my_coroutines
-	sta Coroutine::self
-	lda #>my_coroutines
-	sta Coroutine::self + 1
+.global test_coroutines
+.proc test_coroutines
+	jsr ensure_guard
 
-	; create coroutines
-	lda #<(coroutine0-1)
-	ldy #>(coroutine0-1)
-	jsr Coroutine::new
-	; TODO: check for self==$0000
+	; point Coroutine::self to the head of our array and create coroutines
+	Coroutine_new coroutine0, my_coroutines
+	Coroutine_new coroutine1
+	; TODO: check for error
 
+	; self = coroutine1
+	; iterate through coroutine1 till it halts
+	:
+		jsr Coroutine::next
+		beq :-
+	coroutine1_done:
 	; iterate through coroutine0 till it halts
-	lda #<my_coroutines
-	sta Coroutine::self
-	lda #>my_coroutines
-	sta Coroutine::self + 1
-	do_next1:
-	jsr Coroutine::next
-	do_next2:
-	jsr Coroutine::next
-	
-	debug1:
+	Coroutine_select my_coroutines ; self = coroutine0
+	:
+		jsr Coroutine::next
+		beq :-
+	coroutine0_done:
+	; both coroutines have halted
+	; initialize some more and step them all twice
+	Coroutine_new coroutine1, my_coroutines
+	Coroutine_new coroutine0
+	Coroutine_new coroutine2
+	Coroutine_select my_coroutines
+	jsr Coroutine::next_all
+	Coroutine_select my_coroutines
+	jsr Coroutine::next_all
 	rts
 .endproc
 
 .proc coroutine0
 	nop1:
 	nop
-	jsr Coroutine::yield
+	Coroutine_yield
 	nop2:
 	nop
-	jmp Coroutine::halt
+	Coroutine_halt
 .endproc
 
 .proc coroutine1
 	lda #$33
 	ldy #Coroutine::State::DATA0
 	sta (Coroutine::self), Y
-	jsr Coroutine::yield
+	Coroutine_yield
+	resume1:
 	ldx #$22
 	lda #$11
-	jsr Coroutine::yield
+	Coroutine_yield
+	resume2:
 	dex
 	txa
 	iny ; DATA1
 	sta (Coroutine::self), Y
-	jmp Coroutine::halt
+	Coroutine_halt
+.endproc
+
+.proc coroutine2
+	ldy #Coroutine::State::DATA0
+	ldx #5
+	:
+		txa
+		sta (Coroutine::self), Y
+		Coroutine_yield
+		resume3:
+		dex
+		bne :-
+		
+	Coroutine_halt
 .endproc

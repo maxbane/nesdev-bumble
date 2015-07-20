@@ -51,7 +51,7 @@ actor_routines.o:	locals.inc constants.inc actor.inc
 ai.o: 				locals.inc joy.inc actor.inc constants.inc math_macros.inc
 anim.o:				locals.inc math_macros.inc ppu.inc coroutine.inc
 coroutine.o:		coroutine.inc math_macros.inc
-coroutine_test.o:	coroutine.inc
+coroutine_test.o:	coroutine.inc math_macros.inc
 
 # Emulator locations
 NESTOPIADIR 	= ../../emu/nestopia-1.46.2
