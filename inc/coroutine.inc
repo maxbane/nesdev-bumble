@@ -61,21 +61,21 @@ Coroutine_included = 1
 		.endif
 	.endmacro
 
-	; next (subroutine): meant to be called by a user of the coroutine. jsr
+	; step (subroutine): meant to be called by a user of the coroutine. jsr
 	; with self = coroutine. (re-)enters the coroutine code, executing through
 	; the next yield or halt. Think of calling some_generator.next() in Python.
 	; Returns with A=1 if the coroutine has halted, 0 otherwise.
-	.global next
+	.global step
 
-	; next_all (subroutine): meant to be called by a user of the
+	; step_all (subroutine): meant to be called by a user of the
 	; guard-terminated array of coroutines pointed to by Coroutine::self. jsr
-	; with self = head of array. Calls next once on each non-halted coroutine
+	; with self = head of array. Calls step once on each non-halted coroutine
 	; in the array.
-	.global next_all
+	.global step_all
 
 	; yield (subroutine): meant to be called by the coroutine code itself.
 	; Caller: jsr with self = coroutine; address at top of stack (before jsr)
-	; is where flow will return to, usually the callsite of the next-call that
+	; is where flow will return to, usually the callsite of the step-call that
 	; stepped the coroutine that is now calling yield. A will = 0 when flow
 	; returns. Think of the yield keyword in Python
 	.global yield

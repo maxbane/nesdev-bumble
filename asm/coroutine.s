@@ -138,9 +138,9 @@ Coroutine::halt = halt
 ; so deep, man
 Coroutine::free = halt
 
-; next: jsr with Coroutine::self = coroutine
-Coroutine::next = next
-.proc next
+; step: jsr with Coroutine::self = coroutine
+Coroutine::step = step
+.proc step
 	; first make sure PROG != $0000 (halted)
 	;ldy #0
 	;lda (Coroutine::self), Y
@@ -184,8 +184,8 @@ Coroutine::next = next
 	rts ; jmp to PROG address+1
 .endproc
 
-Coroutine::next_all = next_all
-.proc next_all
+Coroutine::step_all = step_all
+.proc step_all
 	; make sure PROG != $0000 (halted)
 	ldy #Coroutine::State::PROG
 	lda (Coroutine::self), Y
@@ -209,10 +209,10 @@ Coroutine::next_all = next_all
 	:
 	; PROG != $FFFF
 	; step it
-	jsr Coroutine::next
+	jsr Coroutine::step
 	; advance to next coroutine
 	advance_self:
 	mathmac_add16 #.sizeof(Coroutine::State), Coroutine::self, Coroutine::self
-	jmp next_all
+	jmp step_all
 .endproc
 

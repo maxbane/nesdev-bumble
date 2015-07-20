@@ -30,13 +30,13 @@ my_coroutines_guard = my_coroutines + .sizeof(Coroutine::State)*N_COROUTINES
 	; self = coroutine1
 	; iterate through coroutine1 till it halts
 	:
-		jsr Coroutine::next
+		jsr Coroutine::step
 		beq :-
 	coroutine1_done:
 	; iterate through coroutine0 till it halts
 	Coroutine_select my_coroutines ; self = coroutine0
 	:
-		jsr Coroutine::next
+		jsr Coroutine::step
 		beq :-
 	coroutine0_done:
 	; both coroutines have halted
@@ -45,9 +45,9 @@ my_coroutines_guard = my_coroutines + .sizeof(Coroutine::State)*N_COROUTINES
 	Coroutine_new coroutine0
 	Coroutine_new coroutine2
 	Coroutine_select my_coroutines
-	jsr Coroutine::next_all
+	jsr Coroutine::step_all
 	Coroutine_select my_coroutines
-	jsr Coroutine::next_all
+	jsr Coroutine::step_all
 	rts
 .endproc
 
