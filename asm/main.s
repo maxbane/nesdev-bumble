@@ -13,7 +13,7 @@
 .include "physics.inc"
 .include "actor_routines.inc"
 .include "ai.inc"
-.include "anim.inc"
+;.include "anim.inc"
 
 .include "math_macros.inc"
 .include "sprites_manifest.inc"
@@ -129,65 +129,67 @@ irq:
 
     jsr PPU::clear_background
     jsr init_actors
-    jsr init_effects
+    ;jsr init_effects
 
     lda #%00011110
     sta PPU::mask
+    .global test_coroutines
+    jsr test_coroutines
     jmp loop_gameplay
     ; no rts
 .endproc
 
-.segment "RODATA"
-my_effect_script1:
-    ; do nothing then quit
-    .byte Anim::Op::nop
-    .byte Anim::Op::clear_active_and_yield
-
-my_effect_script2:
-    :
-    .byte Anim::Op::nop
-    .byte Anim::Op::yield
-    .byte Anim::Op::jmp_abs, <:-, >:- 
-
-my_effect_script3:
-    ; clear emphasis bits
-    .byte Anim::Op::ppumask_and_with, %00011111
-    Anim_Op_yield_n 8   ; wait 8 frames
-    ; emphasize red
-    .byte Anim::Op::ppumask_or_with, %00100000
-    Anim_Op_yield_n 8
-    ; emphasize green
-    .byte Anim::Op::ppumask_and_with, %00011111
-    .byte Anim::Op::ppumask_or_with, %01000000
-    Anim_Op_yield_n 8
-    ; emphasize blue
-    .byte Anim::Op::ppumask_and_with, %00011111
-    .byte Anim::Op::ppumask_or_with, %10000000
-    Anim_Op_yield_n 8
-    Anim_Op_jmp_abs my_effect_script3
+;.segment "RODATA"
+;my_effect_script1:
+;    ; do nothing then quit
+;    .byte Anim::Op::nop
+;    .byte Anim::Op::clear_active_and_yield
+;
+;my_effect_script2:
+;    :
+;    .byte Anim::Op::nop
+;    .byte Anim::Op::yield
+;    .byte Anim::Op::jmp_abs, <:-, >:- 
+;
+;my_effect_script3:
+;    ; clear emphasis bits
+;    .byte Anim::Op::ppumask_and_with, %00011111
+;    Anim_Op_yield_n 8   ; wait 8 frames
+;    ; emphasize red
+;    .byte Anim::Op::ppumask_or_with, %00100000
+;    Anim_Op_yield_n 8
+;    ; emphasize green
+;    .byte Anim::Op::ppumask_and_with, %00011111
+;    .byte Anim::Op::ppumask_or_with, %01000000
+;    Anim_Op_yield_n 8
+;    ; emphasize blue
+;    .byte Anim::Op::ppumask_and_with, %00011111
+;    .byte Anim::Op::ppumask_or_with, %10000000
+;    Anim_Op_yield_n 8
+;    Anim_Op_jmp_abs my_effect_script3
 
 .segment "CODE"
 
-.proc init_effects
-    ; no fancy "find free effect" functionality here, just take effect 0
-    lda #<my_effect_script1
-    sta Anim::effects_array + Anim::EffectOffset::PC + 0
-    lda #>my_effect_script1
-    sta Anim::effects_array + Anim::EffectOffset::PC + 1
-    lda #%10000001
-    sta Anim::effects_array + Anim::EffectOffset::STATE
-    ; ... and effect 1
-    lda #<my_effect_script2
-    sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 0
-    lda #>my_effect_script2
-    sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 1
-    lda #%10000010
-    sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::STATE
-
-    ; now use the fanciness
-    Anim_create_effect my_effect_script3, 1, 3 ; active 1, oam_index 3
-    rts
-.endproc
+;.proc init_effects
+;    ; no fancy "find free effect" functionality here, just take effect 0
+;    lda #<my_effect_script1
+;    sta Anim::effects_array + Anim::EffectOffset::PC + 0
+;    lda #>my_effect_script1
+;    sta Anim::effects_array + Anim::EffectOffset::PC + 1
+;    lda #%10000001
+;    sta Anim::effects_array + Anim::EffectOffset::STATE
+;    ; ... and effect 1
+;    lda #<my_effect_script2
+;    sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 0
+;    lda #>my_effect_script2
+;    sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::PC + 1
+;    lda #%10000010
+;    sta Anim::effects_array + Anim::EffectOffset::EFFECT_SIZE + Anim::EffectOffset::STATE
+;
+;    ; now use the fanciness
+;    Anim_create_effect my_effect_script3, 1, 3 ; active 1, oam_index 3
+;    rts
+;.endproc
 
 ; Call with A = Joy::new_buttons_?
 .macro handle_input_gameplay
@@ -212,7 +214,7 @@ my_effect_script3:
                       Constants::N_EFFECTS, \
                       {jsr Actor::draw_1x1_actor_sprite}, \
                       {jsr Actor::draw_2x2_actor_sprites}
-    jsr Anim::do_frame
+    ;jsr Anim::do_frame
     jsr PPU::update
     jmp loop_gameplay
 .endproc

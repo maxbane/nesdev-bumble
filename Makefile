@@ -36,7 +36,8 @@ all: $(NESFILE)
 #
 # Which object files should get linked together into the final iNES container.
 #
-OBJECTS = locals.o main.o ppu.o joy.o actor_routines.o ai.o anim.o coroutine.o
+OBJECTS = locals.o main.o ppu.o joy.o actor_routines.o ai.o coroutine.o \
+		  coroutine_test.o
 
 #
 # Object file dependencies, other than the implicit %.s
@@ -49,6 +50,8 @@ joy.o: 				locals.inc
 actor_routines.o:	locals.inc constants.inc actor.inc
 ai.o: 				locals.inc joy.inc actor.inc constants.inc math_macros.inc
 anim.o:				locals.inc math_macros.inc ppu.inc coroutine.inc
+coroutine.o:		coroutine.inc math_macros.inc
+coroutine_test.o:	coroutine.inc
 
 # Emulator locations
 NESTOPIADIR 	= ../../emu/nestopia-1.46.2

@@ -1,182 +1,180 @@
 .include "math_macros.inc"
+.include "coroutine.inc"
 
-.scope Coroutine
-	.segment "ZEROPAGE"
-	.exportzp self
-	self: .res 2
-	; XXX see if we can use existing locals
-	tmp_addr: .res 2
+.segment "ZEROPAGE"
+Coroutine::self:	.res 2
+tmp_addr:			.res 2	; XXX see if we can use existing locals
 
-	.segment "CODE"
-	.scope Offset
-		.exportzp PROG		= 0
-		.exportzp STATUS	= 2
-		.exportzp ACCUM		= 3
-		.exportzp XREG		= 4
-		.exportzp YREG		= 5
-		.exportzp DATA0		= 6
-		.exportzp DATA1		= 7
-		.exportzp SIZE		= 8
-	.endscope
+.segment "CODE"
 
-	.export clear_state
-	.proc clear_state
-		; zero STATUS
-		lda #%00110000
-		ldy #Offset::STATUS
-		sta (self), Y
-		; zero accum, regs, data
-		lda #$00
-		iny
-		sta (self), Y	; ACCUM
-		iny
-		sta (self), Y	; XREG
-		iny
-		sta (self), Y	; YREG
-		iny
-		sta (self), Y	; DATA0
-		iny
-		sta (self), Y	; DATA1
-		rts
-	.endproc
-	
-	; jsr with self = coroutine
-	.export yield
-	.proc yield
-		; immediately stash P and A
-		php
-		pha
-		; store Y
-		tya
-		ldy #Offset::YREG
-		sta (self), Y
-		; store X
-		txa
-		ldy #Offset::XREG
-		sta (self), Y
-		; store stashed A
-		pla
-		ldy #Coroutine::Offset::ACCUM
-		sta (Coroutine::self), Y
-		; store stashed P
-		pla
-		ldy #Coroutine::Offset::STATUS
-		sta (Coroutine::self), Y
-		; next two bytes on stack are now return address of our caller. pop
-		; those and store them as the coroutine's PROG.
-		ldy #Offset::PROG
-		pla
-		sta (self), Y ; low byte
-		iny
-		pla
-		sta (self), Y ; high byte
-		; off we go. note because we have popped our caller's return address,
-		; we are actually returning to our caller's caller. (or to whomever the
-		; caller arranged for us to yield to.)
-		rts
-	.endproc
+Coroutine::clear_state = clear_state
+.proc clear_state
+	; zero STATUS
+	lda #%00110000
+	ldy #Coroutine::State::STATUS
+	sta (Coroutine::self), Y
+	; zero accum, regs, data
+	lda #$00
+	iny
+	sta (Coroutine::self), Y	; ACCUM
+	iny
+	sta (Coroutine::self), Y	; XREG
+	iny
+	sta (Coroutine::self), Y	; YREG
+	iny
+	sta (Coroutine::self), Y	; DATA0
+	iny
+	sta (Coroutine::self), Y	; DATA1
+	rts
+.endproc
 
-	; jsr with
-	;   Zeropage pointer Coroutine::self set to the address of the head
-	;     of a list of Coroutines, terminated by $FFFF aligned with
-	;     Offset::PROG 
-	;   AY = pointer to coroutine code, at starting entry point
-	; rts's with self = addr of new coroutine, or zero if no free space
-	; clobbers AXY, Coroutine::self
-	.export new
-	.proc new
-		sta tmp_addr
-		tya
-		sta tmp_addr+1
+; jsr with Coroutine::self = coroutine
+Coroutine::yield = yield
+.proc yield
+	; immediately stash P and A
+	php
+	pha
+	; store Y
+	tya
+	ldy #Coroutine::State::YREG
+	sta (Coroutine::self), Y
+	; store X
+	txa
+	ldy #Coroutine::State::XREG
+	sta (Coroutine::self), Y
+	; store stashed A
+	pla
+	ldy #Coroutine::State::ACCUM
+	sta (Coroutine::self), Y
+	; store stashed P
+	pla
+	ldy #Coroutine::State::STATUS
+	sta (Coroutine::self), Y
+	; next two bytes on stack are now return address of our caller. pop
+	; those and store them as the coroutine's PROG.
+	ldy #Coroutine::State::PROG
+	pla
+	sta (Coroutine::self), Y ; low byte
+	iny
+	pla
+	sta (Coroutine::self), Y ; high byte
+	; off we go. note because we have popped our caller's return address,
+	; we are actually returning to our caller's caller. (or to whomever the
+	; caller arranged for us to yield to.)
+	rts
+.endproc
 
-		; free coroutines are marked by PROG being $0000. End of list of
-		; coroutines marked by PROG $ffff
-		each:
-			ldx #0
-			ldy #Offset::PROG
-			lda (self), Y
-			bne increment_self ; self not free
-			cmp #$ff
-			bne :+
-				; use X to remember that the first byte was $ff
-				ldx #1
-			:
-			iny
-			lda (self), Y
-			bne increment_self ; self not free
-			cmp #$ff
-			bne :+
-				; second byte was $ff. if first byte also was, as remembered
-				; by X, then we've hit the end of the list
-				dex
-				beq end_of_list
-			:
-			; self is free. store user-supplied address in PROG, clear the
-			; coroutine's state, and return
-			dey ; Y = #Offset::PROG
-			lda tmp_addr
-			sta (self), Y
-			lda tmp_addr + 1
-			iny
-			sta (self), Y
-			jsr clear_state
-			rts
+; jsr with
+;   Zeropage pointer Coroutine::Coroutine::self set to the address of the head
+;     of a list of Coroutines, terminated by $FFFF aligned with
+;     Coroutine::State::PROG 
+;   AY = pointer to coroutine code, at starting entry point
+; rts's with Coroutine::self = addr of new coroutine, or zero if no free space
+; clobbers AXY, Coroutine::Coroutine::self
+Coroutine::new = new
+.proc new
+	sta tmp_addr
+	tya
+	sta tmp_addr+1
 
-			increment_self:
-				mathmac_add16 #Offset::SIZE, self, self
-				jmp each
-
-		end_of_list:
-			mathmac_clr16 self ; set self=$0000 to indicate failure
-			rts
-	.endproc
-
-	; halt: meant to be called by the coroutine code itself.
-	; jmp with self = coroutine
-	.proc halt
-		ldy #Offset::PROG
-		lda #$00
-		sta (self), Y
-		iny
-		sta (self), Y
-		rts
-	.endproc
-
-	; next: jsr with self = coroutine
-	.export next
-	.proc next
-		; first make sure PROG != $0000 (halted)
+	; free coroutines are marked by PROG being $0000. End of list of
+	; coroutines marked by PROG $ffff
+	each:
 		ldx #0
-		lda self, X
+		ldy #Coroutine::State::PROG
+		lda (Coroutine::self), Y
+		bne increment_self ; Coroutine::self not free
+		cmp #$ff
 		bne :+
-			inx
-			lda self, X
-			bne :+
-			rts
-		:	; PROG != $0000
-		
-		; set X
-		ldy #Offset::XREG
-		lda (self), Y
-		tax
+			; use X to remember that the first byte was $ff
+			ldx #1
+		:
+		iny
+		lda (Coroutine::self), Y
+		bne increment_self ; Coroutine::self not free
+		cmp #$ff
+		bne :+
+			; second byte was $ff. if first byte also was, as remembered
+			; by X, then we've hit the end of the list
+			dex
+			beq end_of_list
+		:
+		; Coroutine::self is free. store user-supplied address in PROG, clear the
+		; coroutine's state, and return
+		dey ; Y = #Coroutine::State::PROG
+		lda tmp_addr
+		sta (Coroutine::self), Y
+		lda tmp_addr + 1
+		iny
+		sta (Coroutine::self), Y
+		jsr clear_state
+		rts
 
-		; stash status
-		ldy #Offset::STATUS
-		lda (self), Y
-		pha 
+		increment_self:
+			mathmac_add16 #.sizeof(Coroutine::State), Coroutine::self, Coroutine::self
+			jmp each
 
-		; stash A
-		ldy #Offset::ACCUM
-		lda (self), Y
-		pha
+	end_of_list:
+		mathmac_clr16 Coroutine::self ; set Coroutine::self=$0000 to indicate failure
+		rts
+.endproc
 
-		; set Y
-		ldy #Offset::YREG
-		lda (self), Y
-		tay
+; halt: meant to be called by the coroutine code itself.
+; jmp with Coroutine::self = coroutine
+Coroutine::halt = halt
+.proc halt
+	ldy #Coroutine::State::PROG
+	lda #$00
+	sta (Coroutine::self), Y
+	iny
+	sta (Coroutine::self), Y
+	rts
+.endproc
 
-		pla ; set A
-		plp ; set status
-		jmp (self) ; rts happens when coroutine yields or halts
-	.endproc
-.endscope
+; next: jsr with Coroutine::self = coroutine
+Coroutine::next = next
+.proc next
+	; first make sure PROG != $0000 (halted)
+	;ldx #0
+	;lda Coroutine::self, X
+	;bne :+
+	;	inx
+	;	lda Coroutine::self, X
+	;	bne :+
+	;	rts
+	;:	; PROG != $0000
+	
+	; push PROG onto stack for eventual RTS
+	ldy #Coroutine::State::PROG+1
+	lda (Coroutine::self), Y
+	pha
+	dey
+	lda (Coroutine::self), Y
+	pha
+	
+	; set X
+	ldy #Coroutine::State::XREG
+	lda (Coroutine::self), Y
+	tax
+
+	; stash status
+	ldy #Coroutine::State::STATUS
+	lda (Coroutine::self), Y
+	pha 
+
+	; stash A
+	ldy #Coroutine::State::ACCUM
+	lda (Coroutine::self), Y
+	pha
+
+	; set Y
+	ldy #Coroutine::State::YREG
+	lda (Coroutine::self), Y
+	tay
+
+	pla ; set A
+	plp ; set status
+	rts ; jmp to PROG address+1
+	;jmp (Coroutine::self) ; rts happens when coroutine yields or halts
+.endproc
+
