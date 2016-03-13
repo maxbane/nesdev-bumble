@@ -3,6 +3,7 @@
 .include "actor.inc"
 .include "constants.inc"
 .include "math_macros.inc"
+.include "effects.inc"
 
 .scope AI
 
@@ -76,6 +77,10 @@ button_dir_map:
         and #Joy::BUTTON_A
         beq :+
             jsr do_flap_player0
+            ; cycle palette
+            lda #3
+            ldy #4
+            jsr Effects::strobe_actor_palette
             rts
         :
 

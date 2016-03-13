@@ -13,7 +13,8 @@
 .include "physics.inc"
 .include "actor_routines.inc"
 .include "ai.inc"
-;.include "anim.inc"
+.include "coroutine.inc"
+.include "effects.inc"
 
 .include "math_macros.inc"
 .include "sprites_manifest.inc"
@@ -38,8 +39,8 @@ INES_HEADER INES_PRG_BANK_COUNT, INES_CHR_BANK_COUNT, INES_MAPPER, INES_MIRROR, 
 ;
 
 .segment "TILES"
-.incbin "chr/sprites.chr"
-.incbin "chr/sprites.chr"
+.incbin "chr/sprites-bee.chr"
+.incbin "chr/sprites-bee.chr"
 
 ;
 ; interrupt vectors 
@@ -52,15 +53,15 @@ INES_HEADER INES_PRG_BANK_COUNT, INES_CHR_BANK_COUNT, INES_MAPPER, INES_MIRROR, 
 
 .segment "RODATA"
 main_palettes:
-.byte $1D,$15,$26,$37 ; bg0 purple/pink
-.byte $1D,$09,$19,$29 ; bg1 green
-.byte $1D,$01,$11,$21 ; bg2 blue
-.byte $1D,$00,$10,$30 ; bg3 greyscale
+.byte $20,$15,$26,$37 ; bg0 purple/pink
+.byte $20,$09,$19,$29 ; bg1 green
+.byte $20,$01,$11,$21 ; bg2 blue
+.byte $20,$00,$10,$30 ; bg3 greyscale
 
-.byte $1D,$10,$00,$21 ; sp0 player!
-.byte $1D,$14,$24,$34 ; sp1 purple
-.byte $1D,$1B,$2B,$3B ; sp2 teal
-.byte $1D,$12,$22,$32 ; sp3 marine
+.byte $20,$1d,$38,$20 ; sp0 bee
+.byte $00,$00,$10,$21 ; sp1 jet
+.byte $20,$1B,$2B,$3B ; sp2 teal
+.byte $20,$12,$22,$32 ; sp3 marine
 
 
 .segment "ZEROPAGE"
@@ -133,8 +134,7 @@ irq:
 
     lda #%00011110
     sta PPU::mask
-    .global test_coroutines
-    jsr test_coroutines
+    jsr Effects::init
     jmp loop_gameplay
     ; no rts
 .endproc
@@ -202,20 +202,25 @@ irq:
 
 ; main loop for core gameplay
 .proc loop_gameplay
-    ; loop forever
     Physics_do_gravity_inline Constants::N_ACTORS, Constants::GRAVITY_DDY
     Physics_move_actors_with_bounce_inline Constants::N_ACTORS, \
                                            Constants::FLOOR_Y, \
                                            Constants::CEILING_Y
     handle_input_gameplay
     AI_do_ai Constants::N_ACTORS
-
     Actor_draw_actors Constants::N_ACTORS, \
                       Constants::N_EFFECTS, \
                       {jsr Actor::draw_1x1_actor_sprite}, \
                       {jsr Actor::draw_2x2_actor_sprites}
-    ;jsr Anim::do_frame
+
+    ; Update effects
+    Coroutine_select Effects::effects
+    jsr Coroutine::step_all
+
+    ; Wait for NMI
     jsr PPU::update
+
+    ; Loop
     jmp loop_gameplay
 .endproc
 
@@ -241,8 +246,8 @@ irq:
     lda #(ActorRenderFlagMask::is_active)
     sta actor_01::render_flags
 
-    ;ldx #actor_01::addr
-    ;Actor_set_palette 2
+    ldx #actor_01::addr
+    Actor_set_palette 1
 
     lda #AI::Routine::PLAYER0_CONTROL
     sta the_player::ai_routine

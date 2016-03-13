@@ -10,7 +10,8 @@ Coroutine_included = 1
 ; destination coroutine in between saving state and RTS'ing.
 .scope Coroutine
 	; "current" coroutine pointer (2 bytes in ZP), on which most procedures
-	; operate 
+	; operate, assumed to point to an element of a $ffff-terminated array of
+	; coroutines
 	.globalzp self
 
 	; Convenience macro
@@ -34,6 +35,16 @@ Coroutine_included = 1
 		DATA0	.byte
 		DATA1	.byte
 	.endstruct
+
+	.macro Coroutine_sta_state offset
+		ldy #offset
+		sta (Coroutine::self), Y
+	.endmacro
+	
+	.macro Coroutine_lda_state offset
+		ldy #offset
+		lda (Coroutine::self), Y
+	.endmacro
 	
 	; new (subroutine):
 	;	given a user-supplied, guard-terminated array of coroutine structs,

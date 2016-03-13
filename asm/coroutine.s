@@ -74,6 +74,7 @@ Coroutine::yield = yield
 ; clobbers AXY, Coroutine::Coroutine::self
 Coroutine::new = new
 .proc new
+	; XXX use stack instead?
 	sta tmp_addr
 	tya
 	sta tmp_addr+1
