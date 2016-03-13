@@ -98,16 +98,8 @@ palette_buffer:    .res 32
 ; Reserve a page for an object attribute map buffer
 .segment "OAM"
 
-; An entry in the sprite object attribute memory
-.struct OAMEntry
-	y_coord		.byte
-	tile_index	.byte
-	attributes	.byte
-	x_coord		.byte
-.endstruct
-
 ; sprite OAM data to be uploaded by DMA
-oam_buffer: .res 64 * .sizeof(OAMEntry)
+oam_buffer: .res 64 * 4 ; .sizeof(PPU::OAMEntry) XXX fuck ca65
 .export oam_buffer
 
 ;
@@ -140,9 +132,13 @@ scroll_y:       .res 1
 scroll_nmt:     .res 1 
 .exportzp scroll_nmt
 
-; ppumask buffer
+; REG_MASK buffer
 mask:           .res 1
 .exportzp mask
+
+; REG_CTRL buffer
+ctrl:           .res 1
+.exportzp ctrl
 
 _temp:           .res 1 ; temporary variable
 
@@ -223,13 +219,13 @@ nmi_buffered:
     lda #>oam_buffer
     sta REG_OAM_DMA
     ; palettes
-    lda #%10001000
+    ;lda #%10001000
+    lda ctrl
     sta REG_CTRL ; set horizontal nametable increment
     lda REG_STATUS
     lda #$3F
     sta REG_ADDR
     stx REG_ADDR ; set PPU address to $3F00
-    ldx #0
     :
         lda palette_buffer, X
         sta REG_DATA
@@ -241,23 +237,52 @@ nmi_buffered:
     cpx nmt_buffer_len
     bcs @scroll
     @nmt_update_loop:
-        lda nmt_buffer, X
-        sta REG_ADDR
-        inx
-        lda nmt_buffer, X
-        sta REG_ADDR
-        inx
-        lda nmt_buffer, X
-        sta REG_DATA
-        inx
-        cpx nmt_buffer_len
-        bcc @nmt_update_loop
+        ; next two bytes are new VRAM base address
+        ; 20 cycles to adress next base address
+        ;                         cycles
+        lda nmt_buffer, X       ; 4
+        sta REG_ADDR            ; 4
+        inx                     ; 2
+        lda nmt_buffer, X       ; 4
+        sta REG_ADDR            ; 4
+        inx                     ; 2
+        ; having addressed a VRAM location, repeatedly write to REG_DATA,
+        ; relying on the PPU's automatic address increment, until we encounter
+        ; a $ff byte signalling a new base address
+        @next_byte:             ; ~21 cycles per byte written
+        lda nmt_buffer, X       ; 4
+        inx                     ; 2
+        ; $ff signals next two bytes are a new base addr
+        ; Assume $ff would only be written to the buffer if there are at least
+        ; three more bytes of space after it in the buffer for address and at
+        ; least one byte of data
+        cmp #$ff                ; 2
+        beq @nmt_update_loop    ; 2/3
+
+        sta REG_DATA            ; 4
+        cpx nmt_buffer_len      ; 3
+        bcc @next_byte          ; 2/3
+
+    ; @nmt_update_loop:         ; ~36 cycles per byte written
+    ;     lda nmt_buffer, X     ; 4
+    ;     sta REG_ADDR          ; 4
+    ;     inx                   ; 2
+    ;     lda nmt_buffer, X
+    ;     sta REG_ADDR
+    ;     inx
+    ;     lda nmt_buffer, X
+    ;     sta REG_DATA
+    ;     inx
+    ;     cpx nmt_buffer_len    ; 3
+    ;     bcc @nmt_update_loop  ; 2/3
+@scroll:
     lda #0
     sta nmt_buffer_len
-@scroll:
-    lda scroll_nmt
-    and #%00000011 ; keep only lowest 2 bits to prevent error
-    ora #%10001000
+    ;lda scroll_nmt
+    ;and #%00000011 ; keep only lowest 2 bits to prevent error
+    ;ora #%10001000
+    ;ora ctrl
+    lda ctrl
     sta REG_CTRL
     lda scroll_x
     sta REG_SCROLL
@@ -309,10 +334,10 @@ skip:
         beq :-
     rts
 
-; off: waits until next NMI, numi_buffered will turn rendering off; now
+; off: waits until next NMI, nmi_buffered will turn rendering off; now
 ; safe to write PPU directly via REG_DATA after off returns.
-.export off
-off:
+.export render_off
+render_off:
     lda #2
     sta nmi_ready
     :
@@ -325,6 +350,7 @@ off:
 ;   Y = 32- 63 nametable $2400
 ;   Y = 64- 95 nametable $2800
 ;   Y = 96-127 nametable $2C00
+; Clobbers A, but not X or Y
 .export address_tile
 address_tile:
     lda REG_STATUS ; reset latch
@@ -346,13 +372,35 @@ address_tile:
     sta REG_ADDR ; low bits of Y + X
     rts
 
-; update_tile: can be used with rendering on, sets the tile at X/Y to tile A next time you call update
-.export update_tile
-update_tile:
+; update_tile_at_xy: can be used with rendering on, sets the tile at X/Y to
+; tile A next time you call update. Returns with A = 0 if success, A != 0 if
+; there's insufficient space in the nametable buffer.
+.export update_tile_at_xy
+update_tile_at_xy:
     pha ; temporarily store A on stack
     txa
     pha ; temporarily store X on stack
     ldx nmt_buffer_len
+
+    ; beginning of buffer? if so, we automatically have enough space, and don't
+    ; need to write a $ff
+    cpx #0
+    beq @write_buffer 
+
+    ; enough space for $ff + addr_low + addr_hi + data_byte?
+    cpx #252
+    bcc :+
+        pla
+        pla
+        lda #1 ; error, insufficient space
+        rts
+    :
+    ; since this is not the first entry, we must begin with a $ff
+    lda #$ff
+    sta nmt_buffer, X
+    inx
+
+    @write_buffer:
     tya
     lsr
     lsr
@@ -375,26 +423,75 @@ update_tile:
     sta nmt_buffer, X
     inx
     stx nmt_buffer_len
+    lda #0 ; success
     rts
 
-; update_byte: like update_tile, but X/Y makes the high/low bytes of the PPU address to write
-;    this may be useful for updating attribute tiles
-.export update_byte
-update_byte:
+; update_next_byte: used with rendering on. STA nametable byte following
+; whichever was last updated by update_tile_at_xy or update_byte_at_xy.
+; Returns with X = 0 if the byte was buffered, X != 0 if there's insufficient
+; space or if no byte has been addressed yet in the buffer.
+.export update_next_byte
+update_next_byte:
+    ldx nmt_buffer_len
+    cpx #0
+    bne :+
+        ; buffer must begin with an address
+        ldx #2 ; error
+        rts
+    :
+    cpx #254
+    bne :+
+        ; insufficient space
+        ldx #1
+        rts
+    :
+    sta nmt_buffer, X
+    inx
+    stx nmt_buffer_len
+    ldx #0 ; success
+    rts
+
+; update_byte_at_xy: like update_tile_at_xy, but X/Y makes the high/low bytes
+; of the PPU address to write this may be useful for updating attribute tiles.
+; Returns with A = 0 if success, A != 0 if there's insufficient space in the
+; nametable buffer.
+.export update_byte_at_xy
+update_byte_at_xy:
     pha ; temporarily store A on stack
     tya
     pha ; temporarily store Y on stack
     ldy nmt_buffer_len
+
+    ; beginning of buffer? if so, we automatically have enough space, and don't
+    ; need to write a $ff
+    cpy #0
+    beq @write_buffer 
+
+    ; enough space for $ff + addr_low + addr_hi + data_byte?
+    cpy #252
+    bcc :+
+        pla
+        pla
+        lda #1 ; error, insufficient space
+        rts
+    :
+    ; since this is not the first entry, we must begin with a $ff
+    lda #$ff
+    sta nmt_buffer, Y
+    iny
+
+    @write_buffer:
     txa
     sta nmt_buffer, Y
     iny
-    pla ; recover Y value (but put in Y)
+    pla ; recover Y value (but put in A)
     sta nmt_buffer, Y
     iny
     pla ; recover A value (byte)
     sta nmt_buffer, Y
     iny
     sty nmt_buffer_len
+    lda #0 ; success
     rts
 
 ;

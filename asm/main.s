@@ -130,10 +130,12 @@ irq:
 
     jsr PPU::clear_background
     jsr init_actors
-    ;jsr init_effects
 
     lda #%00011110
     sta PPU::mask
+    lda #%10001000
+    sta PPU::ctrl
+
     jsr Effects::init
     jmp loop_gameplay
     ; no rts
