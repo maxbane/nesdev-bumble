@@ -212,4 +212,14 @@ math_macros_included = 1
     sta resultAddr + 1
 .endmacro
 
+; Compute A % modulus
+.macro mathmac_mod8 modulus
+    .local dosub
+    sec
+    dosub:
+    sbc modulus
+    bcs dosub
+    adc modulus
+.endmacro
+
 .endif ; math_macros_included

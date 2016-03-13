@@ -15,6 +15,7 @@
 .include "ai.inc"
 .include "coroutine.inc"
 .include "effects.inc"
+.include "random.inc"
 
 .include "math_macros.inc"
 .include "sprites_manifest.inc"
@@ -39,7 +40,7 @@ INES_HEADER INES_PRG_BANK_COUNT, INES_CHR_BANK_COUNT, INES_MAPPER, INES_MIRROR, 
 ;
 
 .segment "TILES"
-.incbin "chr/sprites-bee.chr"
+.incbin "chr/background.chr"
 .incbin "chr/sprites-bee.chr"
 
 ;
@@ -52,16 +53,19 @@ INES_HEADER INES_PRG_BANK_COUNT, INES_CHR_BANK_COUNT, INES_MAPPER, INES_MIRROR, 
 .word irq
 
 .segment "RODATA"
-main_palettes:
-.byte $20,$15,$26,$37 ; bg0 purple/pink
-.byte $20,$09,$19,$29 ; bg1 green
-.byte $20,$01,$11,$21 ; bg2 blue
-.byte $20,$00,$10,$30 ; bg3 greyscale
+.proc main_palettes
+    BG = $21
 
-.byte $20,$1d,$38,$20 ; sp0 bee
-.byte $00,$00,$10,$21 ; sp1 jet
-.byte $20,$1B,$2B,$3B ; sp2 teal
-.byte $20,$12,$22,$32 ; sp3 marine
+    .byte BG,$09,$19,$29 ; bg0 grass tones
+    .byte BG,$09,$19,$29 ; bg1 
+    .byte BG,$01,$11,$21 ; bg2 
+    .byte BG,$00,$10,$30 ; bg3 
+
+    .byte BG,$1d,$38,$20 ; sp0 bee
+    .byte BG,$00,$10,$21 ; sp1 jet
+    .byte BG,$1B,$2B,$3B ; sp2 
+    .byte BG,$12,$22,$32 ; sp3 
+.endproc
 
 
 .segment "ZEROPAGE"
@@ -128,7 +132,10 @@ irq:
         cpx #32
         bcc :-
 
+    Random_seed_crc16 #$ff00
+
     jsr PPU::clear_background
+    jsr draw_grass
     jsr init_actors
 
     lda #%00011110
@@ -267,4 +274,67 @@ irq:
         rts
     :
     jmp loop_paused
+.endproc
+
+.proc draw_grass
+    ; indices into background pattern tables
+    GRASS_TOPPER_OFFSET = 1
+    N_GRASS_TOPPERS = 4
+    GRASS_FILLER_OFFSET = 17
+    N_GRASS_FILLERS = 1
+    GRASS_ACCENT_OFFSET = 18
+    N_GRASS_ACCENTS = 3
+    ACCENT_PROB = 25
+
+    ; nametable tile coords
+    HORIZON_Y = 15
+
+    ; topper
+    ldx #0
+    ldy #HORIZON_Y
+    jsr PPU::address_tile
+    ldy #32
+    :
+        ;lda #1
+        jsr Random::random_crc16
+        ; and #%111 ; faster if we know the smallest power of 2 greater than N
+        mathmac_mod8 #N_GRASS_TOPPERS
+        clc
+        adc #GRASS_TOPPER_OFFSET
+        sta PPU::REG_DATA
+        dey
+        bne :-
+
+    ; filler
+    lda #(30 - HORIZON_Y - 1) ; rows to fill
+    cur_row = local_0
+    sta cur_row
+    :
+        ldy #32 ; cols to fill
+        :
+            jsr Random::random_crc16
+            cmp #ACCENT_PROB
+            bcs filler
+            ; accent
+            mathmac_mod8 #N_GRASS_ACCENTS
+            clc
+            adc #GRASS_ACCENT_OFFSET
+            sta PPU::REG_DATA
+            jmp nextcol
+
+            filler:
+            mathmac_mod8 #N_GRASS_FILLERS
+            clc
+            adc #GRASS_FILLER_OFFSET
+            sta PPU::REG_DATA
+
+            nextcol:
+            dey
+            bne :-
+        dec cur_row
+        bne :--
+    
+
+    ; TODO attribute table
+    rts
 .endproc
