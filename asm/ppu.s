@@ -219,7 +219,6 @@ nmi_buffered:
     lda #>oam_buffer
     sta REG_OAM_DMA
     ; palettes
-    ;lda #%10001000
     lda ctrl
     sta REG_CTRL ; set horizontal nametable increment
     lda REG_STATUS
@@ -288,9 +287,7 @@ nmi_buffered:
     sta REG_SCROLL
     lda scroll_y
     sta REG_SCROLL
-    ; enable rendering
-    ; TODO: get this from a variable the user can set
-    ;lda #%00011110
+    ; set mask
     lda mask
     sta REG_MASK
     ; flag PPU update complete
