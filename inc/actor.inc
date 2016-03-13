@@ -167,12 +167,22 @@ Actor_included = 1
 .endmacro
 
 .macro Actor_set_palette palette_index
+    .assert palette_index >= 0 && palette_index < 4, error, \
+        .sprintf("Bad palette index %d", palette_index)
     ; first zero out the actor's palette bits
-    lda #(ActorRenderFlagMask::facing ^ $ff); A = Inverted mask of which bits determine palette
+    lda #(ActorRenderFlagMask::palette ^ $ff); A = Inverted mask of which bits determine palette
     and ActorOffset::RENDER_FLAGS, X  ; AND w/ actor's current flags, i.e., A = actor's
                                       ; flags with palette bits zeroed
     ora #(palette_index << 3)         ; OR in desired palette bits
     sta ActorOffset::RENDER_FLAGS, X  ; store back as the actor's new flags
+.endmacro
+
+.macro Actor_lda_palette
+    lda #ActorRenderFlagMask::palette
+    and ActorOffset::RENDER_FLAGS, X  ; A = actor's flags with non-palette bits zeroed
+    lsr
+    lsr
+    lsr
 .endmacro
 
 .macro Actor_draw_actors N, oam_offset, draw_1x1, draw_2x2
@@ -205,7 +215,7 @@ Actor_included = 1
             beq do_draw_1x1
             ; XXX Think about whether we want to inline these subroutines as
             ; macros. Could save a good few cycles by knowing all the addresses
-            ; at run-time (no need for passing actor_i::addr through X)
+            ; at assemble-time (no need for passing actor_i::addr through X)
             do_draw_2x2:
                 ;jsr draw_2x2_actor_sprites
                 draw_2x2
