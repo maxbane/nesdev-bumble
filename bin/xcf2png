@@ -18,7 +18,7 @@ fi
 
 GIMP_LISP="
 (let* ((image (car (gimp-file-load RUN-NONINTERACTIVE \"$INFILE\" \"$INFILE\")))
-      (drawable (car (gimp-image-get-active-layer image))))
+      (drawable (car (gimp-image-merge-visible-layers image CLIP-TO-IMAGE))))
  (file-png-save RUN-NONINTERACTIVE image drawable \"$OUTFILE\" \"$OUTFILE\" 0 9 0 0 0 1 1)
  (gimp-image-delete image))
 
