@@ -295,12 +295,12 @@ irq:
     jsr PPU::address_tile
     ldy #32
     :
-        ;lda #1
-        jsr Random::random_crc16
+        ;jsr Random::random_crc16
         ; and #%111 ; faster if we know the smallest power of 2 greater than N
-        mathmac_mod8 #N_GRASS_TOPPERS
-        clc
-        adc #GRASS_TOPPER_OFFSET
+        ;mathmac_mod8 #N_GRASS_TOPPERS
+        ;clc
+        ;adc #GRASS_TOPPER_OFFSET
+        rand8_between GRASS_TOPPER_OFFSET, GRASS_TOPPER_OFFSET + N_GRASS_TOPPERS
         sta PPU::REG_DATA
         dey
         bne :-

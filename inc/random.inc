@@ -1,5 +1,8 @@
 .ifndef Random_included
 Random_included = 1 ;;
+.linecont +
+
+.include "math_macros.inc"
 
 .scope Random
     .globalzp crc_lo
@@ -37,6 +40,32 @@ Random_included = 1 ;;
         ;; :clobbers:           A, X.
 
     .global update_crc16
+
+    .macro rand8_between min, max
+        .assert max > min, error, \
+            .sprintf("rand8_between: max must be > min, got: min = %d, max = %d", min, max)
+        .local range
+        .local mask
+
+        jsr Random::random_crc16        ; A = random byte
+        range = max - min
+        ; Speed up the modulus computation by masking out bits unnecessary for
+        ; representing numbers >= range. mask = N-1 where N is the smallest
+        ; power of 2 >= range. E.g., if range == 4, we mask with %111.
+        ; This probably causes us to lose some entropy.
+        mask .set (range - 1)
+        mask .set mask | (mask >> 1)
+        mask .set mask | (mask >> 2)
+        mask .set mask | (mask >> 4)
+        and #mask
+
+        mathmac_mod8 #range
+        .if min > 0
+            clc
+            adc #min
+        .endif
+        ; A = random byte in [min, max).
+    .endmacro
 
 .endscope
 
