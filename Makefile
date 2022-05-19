@@ -5,7 +5,7 @@ PROJECT = bumble
 
 # Location of the base directory of the cc65 distribution or repository; must
 # contain a bin/ subdirectory where ca65 and ld65 are located.
-CC65DIR = ../../cc65
+CC65DIR = ../../../tools/cc65
 
 # Project source/object tree
 INCDIR		= inc
