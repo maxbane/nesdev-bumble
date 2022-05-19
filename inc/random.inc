@@ -41,7 +41,17 @@ Random_included = 1 ;;
 
     .global update_crc16
 
+    ; TODO: 16-bit version
     .macro rand8_between min, max
+        ;;
+        ;; Gets a pseudorandom byte between constants min and max. Sets A = a
+        ;; random byte in [min, max), using random_crc16 followed by a mask,
+        ;; modulus, and addition.
+        ;;
+        ;; :output register A:  The result.
+        ;; :clobbers:           A, X. X will have a psuedorandom value,
+        ;;                      unconstrained.
+
         .assert max > min, error, \
             .sprintf("rand8_between: max must be > min, got: min = %d, max = %d", min, max)
         .local range
@@ -52,7 +62,11 @@ Random_included = 1 ;;
         ; Speed up the modulus computation by masking out bits unnecessary for
         ; representing numbers >= range. mask = N-1 where N is the smallest
         ; power of 2 >= range. E.g., if range == 4, we mask with %111.
-        ; This probably causes us to lose some entropy.
+        ; This probably causes us to lose some entropy. (Algo from Hacker's
+        ; Delight, also found in MAGIC 
+        ; (http://aggregate.org/MAGIC/#Next%20Largest%20Power%20of%202) and
+        ; in Bit Twiddling Hacks
+        ; (http://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2).
         mask .set (range - 1)
         mask .set mask | (mask >> 1)
         mask .set mask | (mask >> 2)
